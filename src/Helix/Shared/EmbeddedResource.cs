@@ -4,7 +4,7 @@ public class EmbeddedResource
 {
     public static string Read(string resourceName)
     {
-        var fullResourceName = $"SpecForge.{resourceName}";
+        var fullResourceName = $"Helix.{resourceName}";
         var resourceStream = typeof(EmbeddedResource).Assembly.GetManifestResourceStream(fullResourceName);
         using var reader = new StreamReader(resourceStream!);
         

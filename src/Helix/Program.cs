@@ -1,9 +1,8 @@
 using System.ClientModel;
 using Azure.AI.OpenAI;
+using Helix.Agents;
+using Helix.Shared;
 using Microsoft.SemanticKernel;
-using SpecForge.Agents;
-using SpecForge.Filters;
-using SpecForge.Shared;
 using Spectre.Console;
 
 var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
@@ -17,8 +16,6 @@ var kernel = Kernel.CreateBuilder()
     )
     .Build();
 
-kernel.FunctionInvocationFilters.Add(new FunctionCallReportingFilter());
-
 var codingAgent = new CodingAgent(kernel);
 var cancellationTokenSource = new CancellationTokenSource();
 
@@ -27,7 +24,7 @@ Console.CancelKeyPress += (sender, eventArgs) =>
     if (codingAgent.Running)
     {
         AnsiConsole.Write(new Markup("[aqua]Cancelling request...[/]"));
-        cancellationTokenSource.Cancel();    
+        cancellationTokenSource.Cancel();
     }
     else
     {
@@ -60,15 +57,15 @@ while (true)
         continue;
     }
 
-    await AnsiConsole.Status().StartAsync("Thinking...", async ctx =>
+    await AnsiConsole.Status().StartAsync(GenerationStatus.Random(), async ctx =>
     {
-        var callContext = new CodingAgentCallContext(ctx);
-        var agentResponse = await codingAgent.InvokeAsync(userPrompt, callContext, cancellationTokenSource.Token);
-
-        if (agentResponse != null)
+        await foreach (var agentResponse in codingAgent.InvokeAsync(userPrompt, cancellationTokenSource.Token))
         {
-            AnsiConsole.Write(new Rule().RuleStyle(Style.Parse("grey dim")));
-            AnsiConsole.WriteLine(agentResponse);
+            if (agentResponse != null)
+            {
+                AnsiConsole.Write(new Rule().RuleStyle(Style.Parse("grey dim")));
+                AnsiConsole.WriteLine(agentResponse);
+            }
         }
     });
 }
