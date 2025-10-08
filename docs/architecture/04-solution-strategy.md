@@ -1,6 +1,6 @@
 # Solution strategy
 
-This section covers the solution strategy for The SpecForge solution.
+This section covers the solution strategy for The Helix solution.
 
 ## Technology choices
 

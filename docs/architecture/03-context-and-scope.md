@@ -1,6 +1,6 @@
 # Context and scope
 
-This section covers the context and scope for the SpecForge coding agent.
+This section covers the context and scope for the Helix coding agent.
 
 ## Business scope
 

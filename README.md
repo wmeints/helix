@@ -1,4 +1,4 @@
-# SpecForge
+# Helix
 
 This project demonstrates how to build a coding agent yourself using C#
 and Semantic Kernel. The goal is to help developers understand the overall
@@ -17,7 +17,7 @@ within your project directory.
 You can run the agent like this:
 
 ```shell
-specforge .
+helix .
 ```
 
 

@@ -1,6 +1,6 @@
 # Building block view
 
-This section covers the building blocks contained in the SpecForge agent.
+This section covers the building blocks contained in the Helix agent.
 
 ## Shell extension
 

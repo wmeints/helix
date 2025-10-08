@@ -1,6 +1,6 @@
 # Introduction and goals
 
-SpecForge is a console-based coding agent that is meant as a demonstration
+Helix is a console-based coding agent that is meant as a demonstration
 how to build a coding agent yourself in C# using Semantic Kernel.
 
 ## High level requirements
