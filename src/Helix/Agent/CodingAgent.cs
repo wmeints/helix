@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 using System.Text;
-using Helix.Plugins;
-using Helix.Plugins.Shell;
-using Helix.Plugins.TextEditor;
+using Helix.Agent.Plugins;
+using Helix.Agent.Plugins.Shell;
+using Helix.Agent.Plugins.TextEditor;
 using Helix.Shared;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -10,7 +10,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.PromptTemplates.Handlebars;
 
-namespace Helix.Agents;
+namespace Helix.Agent;
 
 /// <summary>
 /// The coding agent is the core of Helix. It connects the LLM to tools to complete coding tasks.

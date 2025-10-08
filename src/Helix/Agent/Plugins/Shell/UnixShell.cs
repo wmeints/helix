@@ -1,11 +1,11 @@
 using System.Diagnostics;
 
-namespace Helix.Plugins.Shell;
+namespace Helix.Agent.Plugins.Shell;
 
 /// <summary>
-/// A windows-based shell implementation
+/// A unix-based shell implementation for MacOS and Linux
 /// </summary>
-public class WindowsShell: IShell
+public class UnixShell: IShell
 {
     /// <summary>
     /// Execute a shell command and returns the standard output and standard error as a tuple.
@@ -26,8 +26,8 @@ public class WindowsShell: IShell
 
         var processStartInfo = new ProcessStartInfo
         {
-            FileName = "cmd.exe",
-            Arguments = $"/c {command}",
+            FileName = "/bin/bash",
+            Arguments = $"-c \"{command}\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

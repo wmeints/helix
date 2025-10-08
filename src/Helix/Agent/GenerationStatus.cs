@@ -1,4 +1,4 @@
-namespace Helix.Shared;
+namespace Helix.Agent;
 
 public class GenerationStatus
 {

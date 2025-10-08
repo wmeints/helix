@@ -1,4 +1,4 @@
-namespace Helix.Plugins;
+namespace Helix.Agent.Plugins.Shell;
 
 public interface IShell
 {

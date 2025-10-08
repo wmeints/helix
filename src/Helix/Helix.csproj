@@ -9,8 +9,8 @@
 
   <ItemGroup>
     <None Remove="Prompts\Instructions.txt" />
-    <EmbeddedResource Include="Prompts\Instructions.txt" />
     <None Remove="Logo.txt" />
+    <EmbeddedResource Include="Agent\Prompts\Instructions.txt" />
     <EmbeddedResource Include="Logo.txt" />
   </ItemGroup>
 

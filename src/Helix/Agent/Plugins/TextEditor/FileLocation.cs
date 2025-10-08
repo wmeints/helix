@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Helix.Plugins.TextEditor;
+namespace Helix.Agent.Plugins.TextEditor;
 
 public static class FileLocation
 {

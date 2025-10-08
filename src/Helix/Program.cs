@@ -1,6 +1,6 @@
 using System.ClientModel;
 using Azure.AI.OpenAI;
-using Helix.Agents;
+using Helix.Agent;
 using Helix.Shared;
 using Microsoft.SemanticKernel;
 using Spectre.Console;

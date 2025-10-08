@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.SemanticKernel;
 
-namespace Helix.Plugins.Shell;
+namespace Helix.Agent.Plugins.Shell;
 
 /// <summary>
 /// Coding agent plugin used to interact with the system shell.

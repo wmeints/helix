@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.SemanticKernel;
 
-namespace Helix.Plugins.TextEditor;
+namespace Helix.Agent.Plugins.TextEditor;
 
 /// <summary>
 /// Provides various text manipulation tools to the coding agent.

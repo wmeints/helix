@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using Microsoft.SemanticKernel;
 
-namespace Helix.Plugins;
+namespace Helix.Agent.Plugins;
 
 /// <summary>
 /// This plugin contains key tools for the agent to do a good job.
