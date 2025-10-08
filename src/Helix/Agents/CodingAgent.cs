@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Helix.Plugins;
 using Helix.Plugins.Shell;
+using Helix.Plugins.TextEditor;
 using Helix.Shared;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -22,18 +23,17 @@ public class CodingAgent
     private ChatHistory _chatHistory;
     private ChatHistoryAgentThread _agentThread;
     private bool _running;
-    private SharedPlugin _sharedPlugin;
-    private ShellPlugin _shellPlugin;
+    private readonly SharedTools _sharedTools;
 
     public CodingAgent(Kernel kernel)
     {
-        // Clone the kernel to avoid oversharing state between agents.
         var agentKernel = kernel.Clone();
 
         _chatHistory = new ChatHistory();
         _agentThread = new ChatHistoryAgentThread(_chatHistory);
-        _sharedPlugin = new SharedPlugin();
-        _shellPlugin = new ShellPlugin();
+        _sharedTools = new SharedTools();
+        var shellPlugin = new ShellPlugin();
+        var textEditorPlugin = new TextEditorPlugin();
 
         var promptTemplateConfig = new PromptTemplateConfig
         {
@@ -42,8 +42,9 @@ public class CodingAgent
         };
 
         // Inject the plugins for the agent so it can interact with the environment.
-        agentKernel.Plugins.AddFromObject(_sharedPlugin);
-        agentKernel.Plugins.AddFromObject(_shellPlugin);
+        agentKernel.Plugins.AddFromObject(_sharedTools);
+        agentKernel.Plugins.AddFromObject(shellPlugin);
+        agentKernel.Plugins.AddFromObject(textEditorPlugin);
 
         var promptExecutionSettings = new AzureOpenAIPromptExecutionSettings()
         {
@@ -75,7 +76,7 @@ public class CodingAgent
     {
         // Make sure to reset the final tool output before starting new work.
         // The final tool output is called when the agent is ready, and we don't want it to stop early.
-        _sharedPlugin.ResetFinalToolOutput();
+        _sharedTools.ResetFinalToolOutput();
         _chatHistory.AddUserMessage(prompt);
 
         var iteration = 0;
@@ -89,9 +90,9 @@ public class CodingAgent
                 var outputBuilder = new StringBuilder();
 
                 // Check if the agent signaled that it is done. Stop the iteration loop if it is.
-                if (_sharedPlugin.FinalToolOutputReady)
+                if (_sharedTools.FinalToolOutputReady)
                 {
-                    yield return _sharedPlugin.FinalToolOutputValue;
+                    yield return _sharedTools.FinalToolOutputValue;
                     yield break;
                 }
 
@@ -114,7 +115,7 @@ public class CodingAgent
                 yield break;
             }
 
-            if (iteration == MaxIterations && !_sharedPlugin.FinalToolOutputReady)
+            if (iteration == MaxIterations && !_sharedTools.FinalToolOutputReady)
             {
                 // Signal the user that we've not completed the work required and reached the maximum number
                 // of iterations. The user can type additional commands to help the agent, or they can use one

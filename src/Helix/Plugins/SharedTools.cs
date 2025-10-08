@@ -6,7 +6,7 @@ namespace Helix.Plugins;
 /// <summary>
 /// This plugin contains key tools for the agent to do a good job.
 /// </summary>
-public class SharedPlugin
+public class SharedTools
 {
     /// <summary>
     /// Gets or sets the final tool output status

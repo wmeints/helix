@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Helix.Plugins.TextEditor;
 
-public class LocationResolver
+public static class FileLocation
 {
     public static string Resolve(string relativePath)
     {
