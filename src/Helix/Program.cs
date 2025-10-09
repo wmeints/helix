@@ -1,7 +1,7 @@
 using System.ClientModel;
 using Azure.AI.OpenAI;
 using Helix.Agent;
-using Helix.Shared;
+using Helix.Terminal;
 using Microsoft.SemanticKernel;
 using Spectre.Console;
 
@@ -17,14 +17,13 @@ var kernel = Kernel.CreateBuilder()
     .Build();
 
 var codingAgent = new CodingAgent(kernel);
-var cancellationTokenSource = new CancellationTokenSource();
+var codingAgentInterface = new AgentInterface(AnsiConsole.Console, codingAgent);
 
 Console.CancelKeyPress += (sender, eventArgs) =>
 {
     if (codingAgent.Running)
     {
-        AnsiConsole.Write(new Markup("[aqua]Cancelling request...[/]"));
-        cancellationTokenSource.Cancel();
+        codingAgent.CancelRequest();
     }
     else
     {
@@ -33,39 +32,5 @@ Console.CancelKeyPress += (sender, eventArgs) =>
     }
 };
 
-var logoContent = EmbeddedResource.ReadLines("Logo.txt");
-
-foreach (var line in logoContent)
-{
-    AnsiConsole.WriteLine(line);
-}
-
-while (true)
-{
-    AnsiConsole.Write(new Rule().RuleStyle(Style.Parse("grey dim")));
-    var userPrompt = AnsiConsole.Ask<String>("[green]Enter your prompt (or '/exit' to quit):[/] ");
-
-    if (String.CompareOrdinal(userPrompt, "/exit") == 0)
-    {
-        AnsiConsole.Write(new Markup("[aqua]Shutting down...[/]"));
-        break;
-    }
-
-    if (String.CompareOrdinal(userPrompt, "/clear") == 0)
-    {
-        AnsiConsole.Clear();
-        continue;
-    }
-
-    await AnsiConsole.Status().StartAsync(GenerationStatus.Random(), async ctx =>
-    {
-        await foreach (var agentResponse in codingAgent.InvokeAsync(userPrompt, cancellationTokenSource.Token))
-        {
-            if (agentResponse != null)
-            {
-                AnsiConsole.Write(new Rule().RuleStyle(Style.Parse("grey dim")));
-                AnsiConsole.WriteLine(agentResponse);
-            }
-        }
-    });
-}
+ApplicationLogo.Render();
+await codingAgentInterface.RunAsync();
