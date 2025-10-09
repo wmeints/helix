@@ -20,6 +20,9 @@ You can run the agent like this:
 helix .
 ```
 
+The agent will automatically open the default browser to the web-based interface.
+If it doesn't open, please find it at http://localhost:5000/
+
 
 
 
