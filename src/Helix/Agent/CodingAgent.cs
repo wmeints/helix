@@ -4,7 +4,6 @@ using Helix.Agent.Plugins;
 using Helix.Agent.Plugins.Shell;
 using Helix.Agent.Plugins.TextEditor;
 using Helix.Shared;
-using Helix.Terminal;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -75,7 +74,7 @@ public class CodingAgent
     /// <param name="prompt">User prompt to process.</param>
     /// <param name="agentInterface">The input/output interface for the agent.</param>
     /// <returns>Returns a stream of agent responses.</returns>
-    public async Task InvokeAsync(string prompt, AgentInterface agentInterface)
+    public async Task InvokeAsync(string prompt)
     {
         // Make sure to reset the final tool output before starting new work.
         // The final tool output is called when the agent is ready, and we don't want it to stop early.
@@ -95,24 +94,19 @@ public class CodingAgent
                 // Check if the agent signaled that it is done. Stop the iteration loop if it is.
                 if (_sharedTools.FinalToolOutputReady)
                 {
-                    agentInterface.AppendMessage(_sharedTools.FinalToolOutputValue);
                     return;
                 }
 
                 var responseStream = _agent
                     .InvokeStreamingAsync(_agentThread).WithCancellation(_cancellationTokenSource.Token).ConfigureAwait(false);
-
-                agentInterface.AppendRule();
                 
                 await foreach (var chunk in responseStream)
                 {
                     if (chunk.Message.Content is not null)
                     {
-                        agentInterface.AppendMessageFragment(chunk.Message.Content);    
+                        //TODO: Report content to client       
                     }
                 }
-
-                agentInterface.CompleteMessage();
 
                 iteration++;
             }
@@ -125,11 +119,9 @@ public class CodingAgent
 
             if (iteration == MaxIterations && !_sharedTools.FinalToolOutputReady)
             {
-                // Signal the user that we've not completed the work required and reached the maximum number
+                // TODO: Signal the user that we've not completed the work required and reached the maximum number
                 // of iterations. The user can type additional commands to help the agent, or they can use one
                 // of the slash commands to stop the agent completely.
-                agentInterface.AppendMessage(
-                    "The agent reached the maximum number of iterations. Do you want to continue iterating?");
             }
         }
         finally
