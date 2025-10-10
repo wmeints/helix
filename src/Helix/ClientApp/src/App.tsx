@@ -1,3 +1,7 @@
+import MainLayout from "./components/layouts/main-layout";
+
 export default function App() {
-  return <h1>Hello world</h1>;
+  return (
+    <MainLayout />
+  )
 }
