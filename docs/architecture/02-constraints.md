@@ -8,5 +8,4 @@
 ## Technical constraints
 
 - We can't integrate a fancy user interface with the agent like VSCode or any other IDE.
-- We can't ask the user to run any heavy equipment on their machine.
-
+- The agent must run with a reasonable graphics card or TPU on the client machine.
