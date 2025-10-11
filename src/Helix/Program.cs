@@ -1,5 +1,8 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Microsoft.EntityFrameworkCore;
 using Helix.Data;
+using Helix.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,14 +11,17 @@ var helixDirectory = Path.Combine(Directory.GetCurrentDirectory(), ".helix");
 Directory.CreateDirectory(helixDirectory);
 
 var connectionString = $"Data Source={Path.Combine(helixDirectory, "app.db")}";
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
 
 builder.Services.AddSignalR();
 
+// Open the default browser on application startup.
+builder.Services.AddHostedService<OpenDefaultBrowser>();
+
 var app = builder.Build();
 
-// Ensure database is created and up to date
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
