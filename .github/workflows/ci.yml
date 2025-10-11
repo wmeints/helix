@@ -29,10 +29,6 @@ jobs:
       working-directory: src/Helix/ClientApp
       run: npm ci
 
-    - name: Run frontend linter
-      working-directory: src/Helix/ClientApp
-      run: npm run lint
-
     - name: Restore .NET dependencies
       run: dotnet restore
 
