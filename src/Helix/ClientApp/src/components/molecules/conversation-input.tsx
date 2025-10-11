@@ -17,7 +17,7 @@ const conversationInputSchema = z.object({
 })
 
 interface ConversationInputProps {
-  onSubmitPrompt: (data: z.infer<typeof conversationInputSchema>) => void
+  onSubmitPrompt: (data: z.infer<typeof conversationInputSchema>) => void | Promise<void>
 }
 
 export default function ConversationInput({
@@ -33,15 +33,20 @@ export default function ConversationInput({
   const isMac = navigator.userAgent.toUpperCase().indexOf("MAC") >= 0
   const modifierKey = isMac ? "Cmd" : "Ctrl"
 
+  const handleSubmit = async (data: z.infer<typeof conversationInputSchema>) => {
+    await onSubmitPrompt(data)
+    form.reset()
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault()
-      form.handleSubmit(onSubmitPrompt)()
+      form.handleSubmit(handleSubmit)()
     }
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmitPrompt)} className="py-4">
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="py-4">
       <Form {...form}>
         <FormField
           control={form.control}
