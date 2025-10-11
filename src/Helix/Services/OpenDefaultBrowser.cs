@@ -3,8 +3,16 @@ using System.Runtime.InteropServices;
 
 namespace Helix.Services;
 
-public class OpenDefaultBrowser: IHostedService
+/// <summary>
+/// Opens the default browser when the application starts.
+/// </summary>
+public class OpenDefaultBrowser(ILogger<OpenDefaultBrowser> logger): IHostedService
 {
+    /// <summary>
+    /// Start the hosted service
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public Task StartAsync(CancellationToken cancellationToken)
     {
         var url = "http://localhost:5000";
@@ -26,12 +34,17 @@ public class OpenDefaultBrowser: IHostedService
         }
         catch
         {
-            // Silently fail if browser cannot be opened
+            logger.LogWarning("Failed to open URL in the default browser.");
         }
 
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Stop the hosted service
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public Task StopAsync(CancellationToken cancellationToken)
     {
         // Do nothing.
