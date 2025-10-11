@@ -17,7 +17,7 @@ namespace Helix.Migrations
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Topic = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    ConcurrencyToken = table.Column<byte[]>(type: "BLOB", rowVersion: true, nullable: false)
+                    ConcurrencyToken = table.Column<byte[]>(type: "BLOB", rowVersion: true, nullable: true)
                 },
                 constraints: table =>
                 {

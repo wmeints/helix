@@ -25,7 +25,6 @@ namespace Helix.Migrations
 
                     b.Property<byte[]>("ConcurrencyToken")
                         .IsConcurrencyToken()
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("BLOB");
 
@@ -117,13 +116,11 @@ namespace Helix.Migrations
 
             modelBuilder.Entity("Helix.Models.Message", b =>
                 {
-                    b.HasOne("Helix.Models.Conversation", "Conversation")
+                    b.HasOne("Helix.Models.Conversation", null)
                         .WithMany("Messages")
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Conversation");
                 });
 
             modelBuilder.Entity("Helix.Models.Conversation", b =>

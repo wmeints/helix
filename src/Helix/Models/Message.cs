@@ -16,11 +16,6 @@ public abstract class Message
     public Guid ConversationId { get; set; }
 
     /// <summary>
-    /// The conversation navigation property.
-    /// </summary>
-    public Conversation? Conversation { get; set; }
-
-    /// <summary>
     /// Timestamp when the message was created.
     /// </summary>
     public DateTime Timestamp { get; set; }

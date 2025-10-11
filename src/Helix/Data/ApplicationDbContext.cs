@@ -45,7 +45,7 @@ public class ApplicationDbContext : DbContext
 
             // Configure one-to-many relationship
             entity.HasMany(e => e.Messages)
-                .WithOne(e => e.Conversation!)
+                .WithOne()
                 .HasForeignKey(e => e.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
@@ -72,12 +72,12 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<UserMessage>(entity =>
         {
-            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Content).HasColumnType("TEXT").IsRequired();
         });
         
         modelBuilder.Entity<AssistantResponse>(entity =>
         {
-            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Content).HasColumnType("TEXT").IsRequired();
         });
         
         modelBuilder.Entity<ToolCallMessage>(entity =>
@@ -93,8 +93,7 @@ public class ApplicationDbContext : DbContext
                     c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
                     c => c.ToList()));
 
-            entity.Property(e => e.Arguments)
-                .HasColumnType("TEXT");
+            entity.Property(e => e.Arguments) .HasColumnType("TEXT");
         });
     }
 }
