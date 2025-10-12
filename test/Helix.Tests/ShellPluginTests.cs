@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Helix.Agent;
 using Helix.Agent.Plugins.Shell;
 
 namespace Helix.Tests;
@@ -9,7 +10,13 @@ public class ShellPluginTests
     public async Task ExecuteCommandAsync_ShouldEchoString()
     {
         // Arrange
-        var plugin = new ShellPlugin();
+        var codingAgentContext = new CodingAgentContext
+        {
+            WorkingDirectory = Directory.GetCurrentDirectory(),
+            OperatingSystem = Environment.OSVersion.Platform.ToString()
+        };
+        
+        var plugin = new ShellPlugin(codingAgentContext);
         var expectedOutput = "HelloWorld";
 
         // Act

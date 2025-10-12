@@ -1,3 +1,4 @@
+using Helix.Agent;
 using Helix.Agent.Plugins.TextEditor;
 
 namespace Helix.Tests;
@@ -11,10 +12,14 @@ public class TextEditorPluginTests : IDisposable
     {
         _testDirectory = Path.Combine(Path.GetTempPath(), $"helix-tests-{Guid.NewGuid()}");
         Directory.CreateDirectory(_testDirectory);
-        _plugin = new TextEditorPlugin();
-
-        // Set the working directory for FileLocation.Resolve to use
-        Directory.SetCurrentDirectory(_testDirectory);
+        
+        var codingAgentContext = new CodingAgentContext
+        {
+            WorkingDirectory = _testDirectory,
+            OperatingSystem = Environment.OSVersion.Platform.ToString()
+        };
+        
+        _plugin = new TextEditorPlugin(codingAgentContext);
     }
 
     public void Dispose()
