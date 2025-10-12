@@ -1,3 +1,5 @@
+using Microsoft.SemanticKernel.ChatCompletion;
+
 namespace Helix.Models;
 
 /// <summary>
@@ -18,5 +20,5 @@ public class Conversation
     /// <summary>
     /// Collection of messages in this conversation.
     /// </summary>
-    public ICollection<Message> Messages { get; set; } = new List<Message>();
+    public ChatHistory ChatHistory { get; set; }
 }

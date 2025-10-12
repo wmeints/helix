@@ -2,28 +2,19 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Helix.Models;
 using System.Text.Json;
+using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Helix.Data;
 
 /// <summary>
 /// Application database context for managing conversations and messages.
 /// </summary>
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-        : base(options)
-    {
-    }
-
     /// <summary>
     /// Conversations in the application.
     /// </summary>
     public DbSet<Conversation> Conversations { get; set; } = null!;
-
-    /// <summary>
-    /// Messages in conversations.
-    /// </summary>
-    public DbSet<Message> Messages { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,57 +34,16 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(500);
 
-            // Configure one-to-many relationship
-            entity.HasMany(e => e.Messages)
-                .WithOne()
-                .HasForeignKey(e => e.ConversationId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // Configure Message hierarchy using Table-Per-Hierarchy (TPH)
-        modelBuilder.Entity<Message>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-
-            // Configure discriminator for inheritance
-            entity.HasDiscriminator<string>("MessageType")
-                .HasValue<UserMessage>("User")
-                .HasValue<AssistantResponse>("Assistant")
-                .HasValue<ToolCallMessage>("ToolCall");
-            
-            // Configure concurrency token
-            entity.Property<byte[]>("ConcurrencyToken")
-                .IsRowVersion()
-                .IsConcurrencyToken();
-
-            entity.Property(e => e.Timestamp)
-                .IsRequired();
-        });
-
-        modelBuilder.Entity<UserMessage>(entity =>
-        {
-            entity.Property(e => e.Content).HasColumnType("TEXT").IsRequired();
-        });
-        
-        modelBuilder.Entity<AssistantResponse>(entity =>
-        {
-            entity.Property(e => e.Content).HasColumnType("TEXT").IsRequired();
-        });
-        
-        modelBuilder.Entity<ToolCallMessage>(entity =>
-        {
-            entity.Property(e => e.ToolName).IsRequired();
-
-            entity.Property(e => e.Arguments)
+            // Chat history is serialized as JSON to make sure that we keep the tool calls
+            // as they contain important context information for the coding agent.
+            entity.Property(x => x.ChatHistory)
                 .HasConversion(
                     v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>())
-                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
-                    (c1, c2) => c1!.SequenceEqual(c2!),
-                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
-                    c => c.ToList()));
-
-            entity.Property(e => e.Arguments) .HasColumnType("TEXT");
+                    v => JsonSerializer.Deserialize<ChatHistory>(v, (JsonSerializerOptions?)null) ?? new ChatHistory())
+                .Metadata.SetValueComparer(new ValueComparer<ChatHistory>(
+                    (c1, c2) => c1 == c2 || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+                    c => c.Aggregate(0, (hash, msg) => HashCode.Combine(hash, msg.GetHashCode())),
+                    c => JsonSerializer.Deserialize<ChatHistory>(JsonSerializer.Serialize(c, (JsonSerializerOptions?)null), (JsonSerializerOptions?)null) ?? new ChatHistory()));
         });
     }
 }
