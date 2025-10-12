@@ -19,6 +19,7 @@ builder.Services.AddSignalR();
 
 // Open the default browser on application startup.
 builder.Services.AddHostedService<OpenDefaultBrowser>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 var app = builder.Build();
 
