@@ -7,7 +7,7 @@ namespace Helix.Agent.Plugins.Shell;
 /// <summary>
 /// Coding agent plugin used to interact with the system shell.
 /// </summary>
-public class ShellPlugin
+public class ShellPlugin(CodingAgentContext context)
 {
     /// <summary>
     /// Execute a shell command on behalf of the user.

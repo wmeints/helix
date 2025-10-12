@@ -8,7 +8,7 @@ namespace Helix.Agent.Plugins.TextEditor;
 /// <summary>
 /// Provides various text manipulation tools to the coding agent.
 /// </summary>
-public class TextEditorPlugin
+public class TextEditorPlugin(CodingAgentContext context)
 {
     /// <summary>
     /// View the contents of a file.
