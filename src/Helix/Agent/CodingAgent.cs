@@ -3,7 +3,11 @@ using System.Text;
 using Helix.Agent.Plugins;
 using Helix.Agent.Plugins.Shell;
 using Helix.Agent.Plugins.TextEditor;
+using Helix.Hubs;
+using Helix.Models;
 using Helix.Shared;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -15,28 +19,32 @@ namespace Helix.Agent;
 /// <summary>
 /// The coding agent is the core of Helix. It connects the LLM to tools to complete coding tasks.
 /// </summary>
+/// <remarks>
+/// We expect the agent to be transient, created for each coding task request.
+/// You can include chat history from previous requests to provide context.
+/// </remarks>
 public class CodingAgent
 {
     private const int MaxIterations = 20;
 
-    private CancellationTokenSource _cancellationTokenSource;
-    private ChatHistoryAgent _agent;
-    private ChatHistory _chatHistory;
-    private ChatHistoryAgentThread _agentThread;
-    private bool _running;
+    private readonly CancellationTokenSource _cancellationTokenSource;
+    private readonly ChatHistoryAgent _agent;
+    private readonly ChatHistory _chatHistory;
+    private readonly ChatHistoryAgentThread _agentThread;
     private readonly SharedTools _sharedTools;
-
-    public CodingAgent(Kernel kernel)
+    private bool _running;
+    
+    public CodingAgent(Kernel kernel, ChatHistory chatHistory, CodingAgentContext context)
     {
         var agentKernel = kernel.Clone();
 
-        _chatHistory = new ChatHistory();
+        _chatHistory = chatHistory;
         _agentThread = new ChatHistoryAgentThread(_chatHistory);
         _sharedTools = new SharedTools();
         _cancellationTokenSource = new CancellationTokenSource();
 
-        var shellPlugin = new ShellPlugin();
-        var textEditorPlugin = new TextEditorPlugin();
+        var shellPlugin = new ShellPlugin(context);
+        var textEditorPlugin = new TextEditorPlugin(context);
 
         var promptTemplateConfig = new PromptTemplateConfig
         {
@@ -59,9 +67,9 @@ public class CodingAgent
             Kernel = agentKernel,
             Arguments = new KernelArguments(promptExecutionSettings)
             {
-                ["current_date"] = DateTime.Now,
-                ["operating_system"] = Environment.OSVersion.Platform.ToString(),
-                ["current_directory"] = Environment.CurrentDirectory,
+                ["current_date"] = context.CurrentDateTime,
+                ["operating_system"] = context.OperatingSystem,
+                ["current_directory"] = context.WorkingDirectory,
             },
         };
     }
@@ -72,9 +80,9 @@ public class CodingAgent
     /// Invoke the agent with a prompt to start performing work.
     /// </summary>
     /// <param name="prompt">User prompt to process.</param>
-    /// <param name="agentInterface">The input/output interface for the agent.</param>
+    /// <param name="callbacks">The input/output interface for the agent.</param>
     /// <returns>Returns a stream of agent responses.</returns>
-    public async Task InvokeAsync(string prompt)
+    public async Task<ChatHistory> InvokeAsync(string prompt, ICodingAgentCallbacks callbacks)
     {
         // Make sure to reset the final tool output before starting new work.
         // The final tool output is called when the agent is ready, and we don't want it to stop early.
@@ -92,42 +100,57 @@ public class CodingAgent
                 var outputBuilder = new StringBuilder();
 
                 // Check if the agent signaled that it is done. Stop the iteration loop if it is.
+                // Signal the user we're done with the task.
                 if (_sharedTools.FinalToolOutputReady)
                 {
-                    return;
+                    await callbacks.AgentCompleted(DateTime.Now);
+                    return _chatHistory;
                 }
 
+                var invocationOptions = new AgentInvokeOptions
+                {
+                    OnIntermediateMessage = async (content) =>
+                    {
+                        //TODO: Report status    
+                    }
+                };
+                
                 var responseStream = _agent
-                    .InvokeStreamingAsync(_agentThread).WithCancellation(_cancellationTokenSource.Token).ConfigureAwait(false);
+                    .InvokeStreamingAsync(_agentThread, invocationOptions)
+                    .WithCancellation(_cancellationTokenSource.Token)
+                    .ConfigureAwait(false);
                 
                 await foreach (var chunk in responseStream)
                 {
                     if (chunk.Message.Content is not null)
                     {
-                        //TODO: Report content to client       
+                        outputBuilder.Append(chunk.Message.Content);       
                     }
                 }
 
+                await callbacks.ReceiveAgentResponse(outputBuilder.ToString(), DateTime.Now);
+                
                 iteration++;
             }
 
             // Stop the process when cancellation is requested.
             if (_cancellationTokenSource.IsCancellationRequested)
             {
-                return;
+                await callbacks.RequestCancelled(DateTime.Now);
+                return _chatHistory;
             }
 
             if (iteration == MaxIterations && !_sharedTools.FinalToolOutputReady)
             {
-                // TODO: Signal the user that we've not completed the work required and reached the maximum number
-                // of iterations. The user can type additional commands to help the agent, or they can use one
-                // of the slash commands to stop the agent completely.
+                await callbacks.MaxIterationsReached(DateTime.Now);
             }
         }
         finally
         {
             _running = false;
         }
+        
+        return _chatHistory;
     }
 
     public void CancelRequest()
