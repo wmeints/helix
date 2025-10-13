@@ -69,7 +69,7 @@ public class CodingAgent
             {
                 ["current_date"] = context.CurrentDateTime,
                 ["operating_system"] = context.OperatingSystem,
-                ["current_directory"] = context.WorkingDirectory,
+                ["current_directory"] = context.TargetDirectory,
             },
         };
     }

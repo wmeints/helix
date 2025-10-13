@@ -100,7 +100,7 @@ public class CodingAgentTests : IDisposable
         var chatHistory = new ChatHistory();
         var context = new CodingAgentContext
         {
-            WorkingDirectory = _testDirectory,
+            TargetDirectory = _testDirectory,
             OperatingSystem = Environment.OSVersion.Platform.ToString(),
             CurrentDateTime = DateTime.Now
         };
@@ -138,7 +138,7 @@ public class CodingAgentTests : IDisposable
         var chatHistory = new ChatHistory();
         var context = new CodingAgentContext
         {
-            WorkingDirectory = _testDirectory,
+            TargetDirectory = _testDirectory,
             OperatingSystem = Environment.OSVersion.Platform.ToString(),
             CurrentDateTime = DateTime.Now
         };
@@ -170,7 +170,7 @@ public class CodingAgentTests : IDisposable
         var chatHistory = new ChatHistory();
         var context = new CodingAgentContext
         {
-            WorkingDirectory = _testDirectory,
+            TargetDirectory = _testDirectory,
             OperatingSystem = Environment.OSVersion.Platform.ToString(),
             CurrentDateTime = DateTime.Now
         };

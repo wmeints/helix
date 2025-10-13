@@ -12,7 +12,7 @@ public class ShellPluginTests
         // Arrange
         var codingAgentContext = new CodingAgentContext
         {
-            WorkingDirectory = Directory.GetCurrentDirectory(),
+            TargetDirectory = Directory.GetCurrentDirectory(),
             OperatingSystem = Environment.OSVersion.Platform.ToString()
         };
         

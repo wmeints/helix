@@ -15,7 +15,7 @@ public class TextEditorPluginTests : IDisposable
         
         var codingAgentContext = new CodingAgentContext
         {
-            WorkingDirectory = _testDirectory,
+            TargetDirectory = _testDirectory,
             OperatingSystem = Environment.OSVersion.Platform.ToString()
         };
         

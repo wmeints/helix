@@ -1,35 +1,10 @@
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-using Microsoft.EntityFrameworkCore;
-using Helix.Data;
-using Helix.Services;
+var app = new CommandApp();
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Configure database context
-var helixDirectory = Path.Combine(Directory.GetCurrentDirectory(), ".helix");
-Directory.CreateDirectory(helixDirectory);
-
-var connectionString = $"Data Source={Path.Combine(helixDirectory, "app.db")}";
-
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
-
-builder.Services.AddSignalR();
-
-builder.Services.AddHostedService<OpenDefaultBrowser>();
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
-
-var app = builder.Build();
-
-using (var scope = app.Services.CreateScope())
+app.Configure(config =>
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.EnsureCreated();
-}
+    config.AddCommand<RunAgentCommand>("run");
+});
 
-app.UseStaticFiles();
-app.MapFallbackToFile("index.html");
+app.SetDefaultCommand<RunAgentCommand>();
 
-app.Run();
+return await app.RunAsync(args);

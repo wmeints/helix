@@ -26,6 +26,7 @@
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.66.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.66.0" />
     <PackageReference Include="Microsoft.SemanticKernel.PromptTemplates.Handlebars" Version="1.66.0" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.52.0" />
   </ItemGroup>
 
   <ItemGroup>

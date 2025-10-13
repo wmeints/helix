@@ -8,12 +8,12 @@ public class CodingAgentContext
     /// <summary>
     /// Gets the working directory for the agent.
     /// </summary>
-    public string WorkingDirectory { get; init; }
-    
+    public string TargetDirectory { get; init; } = null!;
+
     /// <summary>
     /// Gets the operating the system the agent is running on.
     /// </summary>
-    public string OperatingSystem { get; init; }
+    public string OperatingSystem { get; init; } = null!;
 
     /// <summary>
     /// Gets the current date/time

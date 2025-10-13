@@ -3,6 +3,7 @@ using Helix.Data;
 using Helix.Hubs;
 using Helix.Models;
 using Helix.Services;
+using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -112,27 +113,21 @@ public class CodingAgentHubTests : IDisposable
         var unitOfWork = new MockUnitOfWork();
         var kernel = CreateKernel();
 
-        // Change to test directory for the hub to work correctly
-        var previousDirectory = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(_testDirectory);
-
-        try
+        var options = new CodingAgentOptions()
         {
-            var hub = new CodingAgentHub(kernel, repository, unitOfWork);
-            var callbacks = new TestCodingAgentCallbacks(hub);
+            TargetDirectory = _testDirectory,
+        };
 
-            // Act
-            await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
+        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
+        var callbacks = new TestCodingAgentCallbacks(hub);
 
-            // Assert
-            Assert.Equal(1, repository.FindByIdCallCount);
-            Assert.Equal(0, repository.InsertCallCount); // Should not insert since it exists
-            Assert.True(callbacks.AgentCompletedCalled);
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousDirectory);
-        }
+        // Act
+        await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
+
+        // Assert
+        Assert.Equal(1, repository.FindByIdCallCount);
+        Assert.Equal(0, repository.InsertCallCount); // Should not insert since it exists
+        Assert.True(callbacks.AgentCompletedCalled);
     }
 
     [Fact]
@@ -152,27 +147,22 @@ public class CodingAgentHubTests : IDisposable
         var unitOfWork = new MockUnitOfWork();
         var kernel = CreateKernel();
 
-        var previousDirectory = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(_testDirectory);
-
-        try
+        var options = new CodingAgentOptions()
         {
-            var hub = new CodingAgentHub(kernel, repository, unitOfWork);
-            var callbacks = new TestCodingAgentCallbacks(hub);
+            TargetDirectory = _testDirectory,
+        };
 
-            // Act
-            await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
+        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
+        var callbacks = new TestCodingAgentCallbacks(hub);
 
-            // Assert
-            Assert.Equal(1, repository.FindByIdCallCount);
-            Assert.Equal(1, repository.InsertCallCount); // Should create new conversation
-            Assert.NotNull(repository.GetConversation(conversationId));
-            Assert.True(callbacks.AgentCompletedCalled);
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousDirectory);
-        }
+        // Act
+        await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
+
+        // Assert
+        Assert.Equal(1, repository.FindByIdCallCount);
+        Assert.Equal(1, repository.InsertCallCount); // Should create new conversation
+        Assert.NotNull(repository.GetConversation(conversationId));
+        Assert.True(callbacks.AgentCompletedCalled);
     }
 
     [Fact]
@@ -192,28 +182,24 @@ public class CodingAgentHubTests : IDisposable
         var unitOfWork = new MockUnitOfWork();
         var kernel = CreateKernel();
 
-        var previousDirectory = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(_testDirectory);
 
-        try
+        var options = new CodingAgentOptions()
         {
-            var hub = new CodingAgentHub(kernel, repository, unitOfWork);
-            var callbacks = new TestCodingAgentCallbacks(hub);
+            TargetDirectory = _testDirectory,
+        };
 
-            // Act
-            var prompt = "Read the calculator.js file and summarize it.";
-            await hub.SubmitPrompt(conversationId, prompt);
+        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
+        var callbacks = new TestCodingAgentCallbacks(hub);
 
-            // Assert
-            Assert.NotEmpty(callbacks.Responses);
-            var allContent = string.Join(" ", callbacks.Responses).ToLower();
-            Assert.Contains("calculator", allContent);
-            Assert.True(callbacks.AgentCompletedCalled);
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousDirectory);
-        }
+        // Act
+        var prompt = "Read the calculator.js file and summarize it.";
+        await hub.SubmitPrompt(conversationId, prompt);
+
+        // Assert
+        Assert.NotEmpty(callbacks.Responses);
+        var allContent = string.Join(" ", callbacks.Responses).ToLower();
+        Assert.Contains("calculator", allContent);
+        Assert.True(callbacks.AgentCompletedCalled);
     }
 
     [Fact]
@@ -233,27 +219,22 @@ public class CodingAgentHubTests : IDisposable
         var unitOfWork = new MockUnitOfWork();
         var kernel = CreateKernel();
 
-        var previousDirectory = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(_testDirectory);
-
-        try
+        var options = new CodingAgentOptions()
         {
-            var hub = new CodingAgentHub(kernel, repository, unitOfWork);
-            var callbacks = new TestCodingAgentCallbacks(hub);
+            TargetDirectory = _testDirectory,
+        };
 
-            // Act
-            await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
+        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
+        var callbacks = new TestCodingAgentCallbacks(hub);
 
-            // Assert
-            Assert.Equal(1, repository.UpdateChatHistoryCallCount);
-            var conversation = repository.GetConversation(conversationId);
-            Assert.NotNull(conversation);
-            Assert.NotEmpty(conversation.ChatHistory);
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousDirectory);
-        }
+        // Act
+        await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
+
+        // Assert
+        Assert.Equal(1, repository.UpdateChatHistoryCallCount);
+        var conversation = repository.GetConversation(conversationId);
+        Assert.NotNull(conversation);
+        Assert.NotEmpty(conversation.ChatHistory);
     }
 
     [Fact]
@@ -273,25 +254,20 @@ public class CodingAgentHubTests : IDisposable
         var unitOfWork = new MockUnitOfWork();
         var kernel = CreateKernel();
 
-        var previousDirectory = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(_testDirectory);
-
-        try
+        var options = new CodingAgentOptions()
         {
-            var hub = new CodingAgentHub(kernel, repository, unitOfWork);
-            var callbacks = new TestCodingAgentCallbacks(hub);
+            TargetDirectory = _testDirectory,
+        };
 
-            // Act
-            await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
+        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
+        var callbacks = new TestCodingAgentCallbacks(hub);
 
-            // Assert
-            Assert.True(unitOfWork.SaveChangesAsyncCalled);
-            Assert.Equal(1, unitOfWork.SaveChangesAsyncCallCount);
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousDirectory);
-        }
+        // Act
+        await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
+
+        // Assert
+        Assert.True(unitOfWork.SaveChangesAsyncCalled);
+        Assert.Equal(1, unitOfWork.SaveChangesAsyncCallCount);
     }
 
     /// <summary>
@@ -343,6 +319,7 @@ public class CodingAgentHubTests : IDisposable
             {
                 conversation.ChatHistory = chatHistory;
             }
+
             return Task.CompletedTask;
         }
     }
@@ -387,6 +364,7 @@ public class CodingAgentHubTests : IDisposable
             {
                 Responses.Add(content);
             }
+
             return Task.CompletedTask;
         }
 
