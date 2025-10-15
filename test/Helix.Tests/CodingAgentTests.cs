@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Helix.Agent;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -49,20 +50,6 @@ public class CodingAgentTests : IDisposable
     }
 
     /// <summary>
-    /// Helper method to check if Azure OpenAI credentials are available
-    /// </summary>
-    private bool AreAzureCredentialsAvailable()
-    {
-        var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
-        var key = Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY");
-        var deployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT");
-
-        return !string.IsNullOrEmpty(endpoint) &&
-               !string.IsNullOrEmpty(key) &&
-               !string.IsNullOrEmpty(deployment);
-    }
-
-    /// <summary>
     /// Creates a Kernel configured with Azure OpenAI
     /// </summary>
     private Kernel CreateKernel()
@@ -85,13 +72,6 @@ public class CodingAgentTests : IDisposable
     [Fact]
     public async Task InvokeAsync_ShouldSummarizeJavaScriptFile()
     {
-        // Skip test if Azure OpenAI credentials are not available
-        if (!AreAzureCredentialsAvailable())
-        {
-            // Use Skip.If from xUnit 3.0+ or just return
-            return;
-        }
-
         // Arrange
         // Copy test file to test directory
         CopyTestFile("calculator.js");
@@ -122,17 +102,14 @@ public class CodingAgentTests : IDisposable
         // The agent should have read the file and provided a summary
         var allContent = string.Join(" ", callbacks.Responses).ToLower();
         Assert.Contains("calculator", allContent);
+
+        await using var outputStream = File.OpenWrite("/home/wmeints/output.json");
+        JsonSerializer.Serialize(outputStream, result);
     }
 
     [Fact]
     public async Task InvokeAsync_ShouldStopAfterMaxIterations()
     {
-        // Skip test if Azure OpenAI credentials are not available
-        if (!AreAzureCredentialsAvailable())
-        {
-            return;
-        }
-
         // Arrange
         var kernel = CreateKernel();
         var chatHistory = new ChatHistory();
@@ -159,12 +136,6 @@ public class CodingAgentTests : IDisposable
     [Fact]
     public async Task CancelRequest_ShouldStopAgentExecution()
     {
-        // Skip test if Azure OpenAI credentials are not available
-        if (!AreAzureCredentialsAvailable())
-        {
-            return;
-        }
-
         // Arrange
         var kernel = CreateKernel();
         var chatHistory = new ChatHistory();

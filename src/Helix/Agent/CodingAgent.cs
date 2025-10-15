@@ -8,6 +8,7 @@ using Helix.Models;
 using Helix.Shared;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -32,9 +33,10 @@ public class CodingAgent
     private readonly ChatHistory _chatHistory;
     private readonly ChatHistoryAgentThread _agentThread;
     private readonly SharedTools _sharedTools;
+    private readonly ILogger<CodingAgent>? _logger;
     private bool _running;
-    
-    public CodingAgent(Kernel kernel, ChatHistory chatHistory, CodingAgentContext context)
+
+    public CodingAgent(Kernel kernel, ChatHistory chatHistory, CodingAgentContext context, ILogger<CodingAgent>? logger = null)
     {
         var agentKernel = kernel.Clone();
 
@@ -42,6 +44,7 @@ public class CodingAgent
         _agentThread = new ChatHistoryAgentThread(_chatHistory);
         _sharedTools = new SharedTools();
         _cancellationTokenSource = new CancellationTokenSource();
+        _logger = logger;
 
         var shellPlugin = new ShellPlugin(context);
         var textEditorPlugin = new TextEditorPlugin(context);
@@ -107,33 +110,46 @@ public class CodingAgent
                     return _chatHistory;
                 }
 
-                var invocationOptions = new AgentInvokeOptions
-                {
-                    OnIntermediateMessage = async (content) =>
-                    {
-                        //TODO: Report status    
-                    }
-                };
-                
                 var responseStream = _agent
-                    .InvokeStreamingAsync(_agentThread, invocationOptions)
+                    .InvokeStreamingAsync(_agentThread)
                     .WithCancellation(_cancellationTokenSource.Token)
                     .ConfigureAwait(false);
-                
+
                 await foreach (var chunk in responseStream)
                 {
                     if (chunk.Message.Content is not null)
                     {
-                        outputBuilder.Append(chunk.Message.Content);       
+                        outputBuilder.Append(chunk.Message.Content);
                     }
                 }
 
                 await callbacks.ReceiveAgentResponse(outputBuilder.ToString(), DateTime.Now);
-                
+
                 iteration++;
             }
+        }
+        catch (HttpRequestException ex) when (ex.InnerException is TaskCanceledException or OperationCanceledException)
+        {
+            // HTTP request was cancelled (common with Azure OpenAI during cancellation)
+            _logger?.LogWarning(ex, "HTTP request to AI service was cancelled or timed out during cancellation");
+            await callbacks.RequestCancelled(DateTime.Now);
+            return _chatHistory;
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected exception when cancellation is requested (includes TaskCanceledException)
+            _logger?.LogInformation("Agent operation was cancelled");
+            await callbacks.RequestCancelled(DateTime.Now);
+            return _chatHistory;
+        }
+        finally
+        {
+            _running = false;
+        }
 
-            // Stop the process when cancellation is requested.
+        try
+        {
+            // Check if cancellation was requested
             if (_cancellationTokenSource.IsCancellationRequested)
             {
                 await callbacks.RequestCancelled(DateTime.Now);
@@ -144,13 +160,14 @@ public class CodingAgent
             {
                 await callbacks.MaxIterationsReached(DateTime.Now);
             }
+
+            return _chatHistory;
         }
-        finally
+        catch (Exception ex)
         {
-            _running = false;
+            _logger?.LogError(ex, "Unexpected error during agent completion check");
+            throw;
         }
-        
-        return _chatHistory;
     }
 
     public void CancelRequest()

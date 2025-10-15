@@ -35,4 +35,10 @@ public class ConversationRepository(ApplicationDbContext applicationDbContext): 
     {
         return applicationDbContext.Conversations.SingleOrDefaultAsync(x=>x.Id == conversationId);
     }
+
+    public async Task<IEnumerable<Conversation>> FindAllAsync()
+    {
+        return await applicationDbContext.Conversations
+            .OrderByDescending(x=>x.DateCreated).ToListAsync();
+    }
 }

@@ -4,6 +4,7 @@ using Helix.Models;
 using Helix.Services;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -19,7 +20,8 @@ public class CodingAgentHub: Hub<ICodingAgentCallbacks>
     private readonly IConversationRepository _conversationRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IOptions<CodingAgentOptions> _codingAgentOptions;
-    
+    private readonly ILogger<CodingAgent> _logger;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="CodingAgentHub"/> class.
     /// </summary>
@@ -27,14 +29,16 @@ public class CodingAgentHub: Hub<ICodingAgentCallbacks>
     /// <param name="conversationRepository">Repository to load/save data</param>
     /// <param name="unitOfWork">Unit of work for the agent</param>
     /// <param name="codingAgentOptions">Options for the coding agent</param>
-    public CodingAgentHub(Kernel applicationKernel, 
-        IConversationRepository conversationRepository, IUnitOfWork unitOfWork, 
-        IOptions<CodingAgentOptions> codingAgentOptions)
+    /// <param name="logger">Logger for the coding agent</param>
+    public CodingAgentHub(Kernel applicationKernel,
+        IConversationRepository conversationRepository, IUnitOfWork unitOfWork,
+        IOptions<CodingAgentOptions> codingAgentOptions, ILogger<CodingAgent> logger)
     {
         _applicationKernel = applicationKernel;
         _conversationRepository = conversationRepository;
         _unitOfWork = unitOfWork;
         _codingAgentOptions = codingAgentOptions;
+        _logger = logger;
     }
 
     /// <summary>
@@ -54,8 +58,8 @@ public class CodingAgentHub: Hub<ICodingAgentCallbacks>
             TargetDirectory = _codingAgentOptions.Value.TargetDirectory,
             OperatingSystem = Environment.OSVersion.Platform.ToString()
         };
-        
-        var codingAgent = new CodingAgent(_applicationKernel, conversation.ChatHistory, codingAgentContext);
+
+        var codingAgent = new CodingAgent(_applicationKernel, conversation.ChatHistory, codingAgentContext, _logger);
         var updatedHistory = await codingAgent.InvokeAsync(userPrompt, Clients.Caller);
         
         await _conversationRepository.UpdateChatHistoryAsync(conversationId, updatedHistory);

@@ -3,9 +3,12 @@ using Helix.Data;
 using Helix.Hubs;
 using Helix.Models;
 using Helix.Services;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Moq;
 
 namespace Helix.Tests;
 
@@ -54,20 +57,6 @@ public class CodingAgentHubTests : IDisposable
     }
 
     /// <summary>
-    /// Helper method to check if Azure OpenAI credentials are available
-    /// </summary>
-    private bool AreAzureCredentialsAvailable()
-    {
-        var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
-        var key = Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY");
-        var deployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT");
-
-        return !string.IsNullOrEmpty(endpoint) &&
-               !string.IsNullOrEmpty(key) &&
-               !string.IsNullOrEmpty(deployment);
-    }
-
-    /// <summary>
     /// Creates a Kernel configured with Azure OpenAI
     /// </summary>
     private Kernel CreateKernel()
@@ -87,15 +76,36 @@ public class CodingAgentHubTests : IDisposable
         return kernelBuilder.Build();
     }
 
+    /// <summary>
+    /// Creates a CodingAgentHub with mocked SignalR Clients.Caller
+    /// </summary>
+    private (CodingAgentHub hub, TestCodingAgentCallbacks callbacks) CreateHubWithMockedClients(
+        Kernel kernel,
+        IConversationRepository repository,
+        IUnitOfWork unitOfWork,
+        CodingAgentOptions options)
+    {
+        var callbacks = new TestCodingAgentCallbacks();
+
+        // Mock the SignalR Clients property - following ASP.NET Core SignalR unit testing pattern
+        var mockClients = new Mock<IHubCallerClients<ICodingAgentCallbacks>>();
+        mockClients.Setup(c => c.Caller).Returns(callbacks);
+
+        // Mock the logger
+        var mockLogger = new Mock<ILogger<CodingAgent>>();
+
+        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options), mockLogger.Object)
+        {
+            // Set the Clients property directly - it has a public setter in ASP.NET Core SignalR
+            Clients = mockClients.Object
+        };
+
+        return (hub, callbacks);
+    }
+
     [Fact]
     public async Task SubmitPrompt_WithExistingConversation_ShouldUseExistingConversation()
     {
-        // Skip test if Azure OpenAI credentials are not available
-        if (!AreAzureCredentialsAvailable())
-        {
-            return;
-        }
-
         // Arrange
         CopyTestFile("calculator.js");
 
@@ -118,8 +128,7 @@ public class CodingAgentHubTests : IDisposable
             TargetDirectory = _testDirectory,
         };
 
-        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
-        var callbacks = new TestCodingAgentCallbacks(hub);
+        var (hub, callbacks) = CreateHubWithMockedClients(kernel, repository, unitOfWork, options);
 
         // Act
         await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
@@ -133,12 +142,6 @@ public class CodingAgentHubTests : IDisposable
     [Fact]
     public async Task SubmitPrompt_WithNewConversation_ShouldCreateNewConversation()
     {
-        // Skip test if Azure OpenAI credentials are not available
-        if (!AreAzureCredentialsAvailable())
-        {
-            return;
-        }
-
         // Arrange
         CopyTestFile("calculator.js");
 
@@ -152,8 +155,7 @@ public class CodingAgentHubTests : IDisposable
             TargetDirectory = _testDirectory,
         };
 
-        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
-        var callbacks = new TestCodingAgentCallbacks(hub);
+        var (hub, callbacks) = CreateHubWithMockedClients(kernel, repository, unitOfWork, options);
 
         // Act
         await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
@@ -168,12 +170,6 @@ public class CodingAgentHubTests : IDisposable
     [Fact]
     public async Task SubmitPrompt_ShouldInvokeAgentWithPrompt()
     {
-        // Skip test if Azure OpenAI credentials are not available
-        if (!AreAzureCredentialsAvailable())
-        {
-            return;
-        }
-
         // Arrange
         CopyTestFile("calculator.js");
 
@@ -182,14 +178,12 @@ public class CodingAgentHubTests : IDisposable
         var unitOfWork = new MockUnitOfWork();
         var kernel = CreateKernel();
 
-
         var options = new CodingAgentOptions()
         {
             TargetDirectory = _testDirectory,
         };
 
-        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
-        var callbacks = new TestCodingAgentCallbacks(hub);
+        var (hub, callbacks) = CreateHubWithMockedClients(kernel, repository, unitOfWork, options);
 
         // Act
         var prompt = "Read the calculator.js file and summarize it.";
@@ -205,12 +199,6 @@ public class CodingAgentHubTests : IDisposable
     [Fact]
     public async Task SubmitPrompt_ShouldUpdateChatHistoryInRepository()
     {
-        // Skip test if Azure OpenAI credentials are not available
-        if (!AreAzureCredentialsAvailable())
-        {
-            return;
-        }
-
         // Arrange
         CopyTestFile("calculator.js");
 
@@ -224,8 +212,7 @@ public class CodingAgentHubTests : IDisposable
             TargetDirectory = _testDirectory,
         };
 
-        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
-        var callbacks = new TestCodingAgentCallbacks(hub);
+        var (hub, callbacks) = CreateHubWithMockedClients(kernel, repository, unitOfWork, options);
 
         // Act
         await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
@@ -240,12 +227,6 @@ public class CodingAgentHubTests : IDisposable
     [Fact]
     public async Task SubmitPrompt_ShouldSaveChangesViaUnitOfWork()
     {
-        // Skip test if Azure OpenAI credentials are not available
-        if (!AreAzureCredentialsAvailable())
-        {
-            return;
-        }
-
         // Arrange
         CopyTestFile("calculator.js");
 
@@ -259,8 +240,7 @@ public class CodingAgentHubTests : IDisposable
             TargetDirectory = _testDirectory,
         };
 
-        var hub = new CodingAgentHub(kernel, repository, unitOfWork, new OptionsWrapper<CodingAgentOptions>(options));
-        var callbacks = new TestCodingAgentCallbacks(hub);
+        var (hub, callbacks) = CreateHubWithMockedClients(kernel, repository, unitOfWork, options);
 
         // Act
         await hub.SubmitPrompt(conversationId, "Read the calculator.js file and summarize it.");
@@ -297,6 +277,11 @@ public class CodingAgentHubTests : IDisposable
             FindByIdCallCount++;
             _conversations.TryGetValue(conversationId, out var conversation);
             return Task.FromResult(conversation);
+        }
+
+        public Task<IEnumerable<Conversation>> FindAllAsync()
+        {
+            return Task.FromResult((IEnumerable<Conversation>)_conversations.Values);
         }
 
         public Task<Conversation> InsertConversationAsync(Guid conversationId)
@@ -341,22 +326,15 @@ public class CodingAgentHubTests : IDisposable
     }
 
     /// <summary>
-    /// Test implementation of ICodingAgentCallbacks that uses the hub's Clients.Caller
+    /// Test implementation of ICodingAgentCallbacks
     /// </summary>
     private class TestCodingAgentCallbacks : ICodingAgentCallbacks
     {
-        private readonly CodingAgentHub _hub;
-
         public List<string> Responses { get; } = new();
         public List<(string toolName, List<string> arguments)> ToolCalls { get; } = new();
         public bool AgentCompletedCalled { get; private set; }
         public bool MaxIterationsReachedCalled { get; private set; }
         public bool RequestCancelledCalled { get; private set; }
-
-        public TestCodingAgentCallbacks(CodingAgentHub hub)
-        {
-            _hub = hub;
-        }
 
         public Task ReceiveAgentResponse(string content, DateTime timestamp)
         {
