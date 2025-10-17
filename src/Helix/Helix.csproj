@@ -36,7 +36,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="Agent\Prompts\Instructions.txt"/>
+        <EmbeddedResource Include="Agent\Prompts\Instructions.md"/>
     </ItemGroup>
 
     <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">
