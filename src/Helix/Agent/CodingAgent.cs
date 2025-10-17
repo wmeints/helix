@@ -250,7 +250,8 @@ public class CodingAgent
     {
         var promptTemplateConfig = new PromptTemplateConfig
         {
-            Template = EmbeddedResource.Read("Agent.Prompts.Instructions.md")
+            Template = EmbeddedResource.Read("Agent.Prompts.Instructions.md"),
+            TemplateFormat = "handlebars"
         };
 
         var promptTemplateFactory = new HandlebarsPromptTemplateFactory
