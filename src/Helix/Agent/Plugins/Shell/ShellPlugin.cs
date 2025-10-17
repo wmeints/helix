@@ -10,6 +10,16 @@ namespace Helix.Agent.Plugins.Shell;
 public class ShellPlugin(CodingAgentContext context)
 {
     /// <summary>
+    /// Checks if the function call requires permission to execute.
+    /// </summary>
+    /// <param name="content">Function call content to validate</param>
+    /// <returns>Returns true when the function call requires permission.</returns>
+    public bool RequiresPermission(FunctionCallContent content)
+    {
+        return content.FunctionName == "shell";
+    }
+    
+    /// <summary>
     /// Execute a shell command on behalf of the user.
     /// </summary>
     /// <param name="command">Command to execute.</param>

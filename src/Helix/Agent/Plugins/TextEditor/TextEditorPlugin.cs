@@ -11,6 +11,16 @@ namespace Helix.Agent.Plugins.TextEditor;
 public class TextEditorPlugin(CodingAgentContext context)
 {
     /// <summary>
+    /// Checks if the function call requires permission to execute.
+    /// </summary>
+    /// <param name="content">Function call content to validate</param>
+    /// <returns>Returns true when the function call requires permission.</returns>
+    public bool RequiresPermission(FunctionCallContent content)
+    {
+        return content.FunctionName is "write_file" or "insert_text" or "replace_text";
+    }
+    
+    /// <summary>
     /// View the contents of a file.
     /// </summary>
     /// <param name="path">Path to the file to read.</param>
