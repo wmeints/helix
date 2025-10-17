@@ -56,7 +56,7 @@ public class CodingAgent
     /// <param name="userPrompt">User prompt to process.</param>
     /// <param name="callbacks">The input/output interface for the agent.</param>
     /// <returns>Returns a stream of agent responses.</returns>
-    public async Task SubmitPromptAsync(string userPrompt, ICodingAgentCallbacks callbacks)
+    public virtual async Task SubmitPromptAsync(string userPrompt, ICodingAgentCallbacks callbacks)
     {
         // Make sure to reset the final tool output before starting new work.
         // The final tool output is called when the agent is ready, and we don't want it to stop early.
@@ -74,7 +74,7 @@ public class CodingAgent
     /// </summary>
     /// <param name="callId">Identifier for the call.</param>
     /// <param name="callbacks">The input/output interface for the agent.</param>
-    public async Task ApproveFunctionCall(string callId, ICodingAgentCallbacks callbacks)
+    public virtual async Task ApproveFunctionCall(string callId, ICodingAgentCallbacks callbacks)
     {
         var pendingFunctionCall = _conversation.PendingFunctionCalls.SingleOrDefault(x => x.FunctionCallId == callId);
 
@@ -106,7 +106,7 @@ public class CodingAgent
     /// </summary>
     /// <param name="callId">Unique identifier for the call</param>
     /// <param name="callbacks">The input/output interface for the agent.</param>
-    public async Task DeclineFunctionCall(string callId, ICodingAgentCallbacks callbacks)
+    public virtual async Task DeclineFunctionCall(string callId, ICodingAgentCallbacks callbacks)
     {
         var pendingFunctionCall = _conversation.PendingFunctionCalls
             .SingleOrDefault(x => x.FunctionCallId == callId);

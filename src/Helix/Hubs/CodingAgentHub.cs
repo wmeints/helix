@@ -3,10 +3,6 @@ using Helix.Data;
 using Helix.Models;
 using Helix.Services;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Helix.Hubs;
 
@@ -15,26 +11,22 @@ namespace Helix.Hubs;
 /// </summary>
 public class CodingAgentHub : Hub<ICodingAgentCallbacks>
 {
-    private readonly Kernel _applicationKernel;
+    private readonly ICodingAgentFactory _codingAgentFactory;
     private readonly IConversationRepository _conversationRepository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IOptions<CodingAgentOptions> _codingAgentOptions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CodingAgentHub"/> class.
     /// </summary>
-    /// <param name="applicationKernel">Semantic kernel instance</param>
+    /// <param name="codingAgentFactory">Factory for creating coding agent instances</param>
     /// <param name="conversationRepository">Repository to load/save data</param>
     /// <param name="unitOfWork">Unit of work for the agent</param>
-    /// <param name="codingAgentOptions">Options for the coding agent</param>
-    public CodingAgentHub(Kernel applicationKernel,
-        IConversationRepository conversationRepository, IUnitOfWork unitOfWork,
-        IOptions<CodingAgentOptions> codingAgentOptions)
+    public CodingAgentHub(ICodingAgentFactory codingAgentFactory,
+        IConversationRepository conversationRepository, IUnitOfWork unitOfWork)
     {
-        _applicationKernel = applicationKernel;
+        _codingAgentFactory = codingAgentFactory;
         _conversationRepository = conversationRepository;
         _unitOfWork = unitOfWork;
-        _codingAgentOptions = codingAgentOptions;
     }
 
     /// <summary>
@@ -49,15 +41,8 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
     {
         var conversation = await FindOrCreateConversationAsync(conversationId);
 
-        var codingAgentContext = new CodingAgentContext
-        {
-            TargetDirectory = _codingAgentOptions.Value.TargetDirectory,
-            OperatingSystem = Environment.OSVersion.Platform.ToString(),
-            CurrentDateTime = DateTime.UtcNow
-        };
-
-        var codingAgent = new CodingAgent(_applicationKernel, conversation, codingAgentContext);
-        await codingAgent.SubmitPromptAsync(userPrompt, Clients.Caller);
+        var codingAgent = _codingAgentFactory.Create(conversation);
+        await codingAgent.SubmitPromptAsync(userPrompt, GetAgentCallbacks());
 
         await _conversationRepository.UpdateConversationAsync(conversation);
         await _unitOfWork.SaveChangesAsync();
@@ -78,15 +63,8 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
             throw new ArgumentException($"No conversation found for id {conversationId}");
         }
 
-        var codingAgentContext = new CodingAgentContext
-        {
-            TargetDirectory = _codingAgentOptions.Value.TargetDirectory,
-            OperatingSystem = Environment.OSVersion.Platform.ToString(),
-            CurrentDateTime = DateTime.UtcNow
-        };
-
-        var codingAgent = new CodingAgent(_applicationKernel, conversation, codingAgentContext);
-        await codingAgent.ApproveFunctionCall(toolCallId, Clients.Caller);
+        var codingAgent = _codingAgentFactory.Create(conversation);
+        await codingAgent.ApproveFunctionCall(toolCallId, GetAgentCallbacks());
 
         await _conversationRepository.UpdateConversationAsync(conversation);
         await _unitOfWork.SaveChangesAsync();
@@ -107,18 +85,20 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
             throw new ArgumentException($"No conversation found for id {conversationId}");
         }
 
-        var codingAgentContext = new CodingAgentContext
-        {
-            TargetDirectory = _codingAgentOptions.Value.TargetDirectory,
-            OperatingSystem = Environment.OSVersion.Platform.ToString(),
-            CurrentDateTime = DateTime.UtcNow
-        };
-
-        var codingAgent = new CodingAgent(_applicationKernel, conversation, codingAgentContext);
-        await codingAgent.DeclineFunctionCall(toolCallId, Clients.Caller);
+        var codingAgent = _codingAgentFactory.Create(conversation);
+        await codingAgent.DeclineFunctionCall(toolCallId, GetAgentCallbacks());
 
         await _conversationRepository.UpdateConversationAsync(conversation);
         await _unitOfWork.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Gets the caller for the current hub connection. Can be overridden for testing.
+    /// </summary>
+    /// <returns>The caller callbacks interface.</returns>
+    protected virtual ICodingAgentCallbacks GetAgentCallbacks()
+    {
+        return Clients.Caller;
     }
 
     private async Task<Conversation> FindOrCreateConversationAsync(Guid conversationId)

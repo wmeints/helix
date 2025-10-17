@@ -57,6 +57,7 @@ public class RunAgentCommand : AsyncCommand<RunAgentCommandSettings>
         builder.Services.AddHostedService<OpenDefaultBrowser>();
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+        builder.Services.AddScoped<ICodingAgentFactory, CodingAgentFactory>();
 
         var app = builder.Build();
 
