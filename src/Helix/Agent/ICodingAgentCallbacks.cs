@@ -9,31 +9,35 @@ public interface ICodingAgentCallbacks
     /// Invoke to send information about an agent response to the client
     /// </summary>
     /// <param name="content">Content of the response</param>
-    /// <param name="timestamp">Timestamp the response was generated</param>
-    Task ReceiveAgentResponse(string content, DateTime timestamp);
+    Task ReceiveAgentResponse(string content);
     
     /// <summary>
     /// Invoke to send information about a toolcall to the client
     /// </summary>
     /// <param name="toolName">Name of the tool that was used</param>
     /// <param name="arguments">List of arguments for the tool</param>
-    /// <param name="timestamp">Timestamp the call happened</param>
-    Task ReceiveToolCall(string toolName, List<string> arguments, DateTime timestamp);
+    Task ReceiveToolCall(string toolName, List<string> arguments);
     
     /// <summary>
     /// Invoke to mark the agent task completed.
     /// </summary>
-    Task AgentCompleted(DateTime timestamp);
+    Task AgentCompleted();
     
     /// <summary>
     /// Invoke to indicate to the client we reached the maximum number of iterations.
     /// </summary>
-    /// <param name="timestamp">Timestamp for the event.</param>
-    Task MaxIterationsReached(DateTime timestamp);
+    Task MaxIterationsReached();
     
     /// <summary>
     /// Invoke to indicate to the client that the request was cancelled.
     /// </summary>
-    /// <param name="timestamp">Timestamp of the event.</param>
-    Task RequestCancelled(DateTime timestamp);
+    Task RequestCancelled();
+
+    /// <summary>
+    /// Request permission from the user to execute the tool.
+    /// </summary>
+    /// <param name="callId">Identifier for the function call.</param>
+    /// <param name="functionName">Function that the agent wants to call.</param>
+    /// <param name="arguments">Arguments for the function.</param>
+    Task RequestPermission(string callId, string functionName, Dictionary<string, string> arguments);
 }

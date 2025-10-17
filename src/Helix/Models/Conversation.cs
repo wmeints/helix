@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Helix.Models;
@@ -26,4 +27,13 @@ public class Conversation
     /// The date the conversation was started.
     /// </summary>
     public DateTime DateCreated { get; set; }
+
+    /// <summary>
+    /// The list of pending function calls for the conversation.
+    /// </summary>
+    /// <remarks>
+    /// The agent uses this to track function calls that require user permission.
+    /// When there are zero pending function calls, the agent can continue processing.
+    /// </remarks>
+    public List<PendingFunctionCall> PendingFunctionCalls { get; set; } = new();
 }

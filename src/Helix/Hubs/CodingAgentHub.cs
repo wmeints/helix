@@ -14,7 +14,7 @@ namespace Helix.Hubs;
 /// <summary>
 /// SignalR hub connecting the frontend to the coding agent.
 /// </summary>
-public class CodingAgentHub: Hub<ICodingAgentCallbacks>
+public class CodingAgentHub : Hub<ICodingAgentCallbacks>
 {
     private readonly Kernel _applicationKernel;
     private readonly IConversationRepository _conversationRepository;
@@ -59,13 +59,69 @@ public class CodingAgentHub: Hub<ICodingAgentCallbacks>
             OperatingSystem = Environment.OSVersion.Platform.ToString()
         };
 
-        var codingAgent = new CodingAgent(_applicationKernel, conversation.ChatHistory, codingAgentContext, _logger);
-        var updatedHistory = await codingAgent.InvokeAsync(userPrompt, Clients.Caller);
-        
-        await _conversationRepository.UpdateChatHistoryAsync(conversationId, updatedHistory);
+        var codingAgent = new CodingAgent(_applicationKernel, conversation, codingAgentContext, _logger);
+        await codingAgent.SubmitPromptAsync(userPrompt, Clients.Caller);
+
+        await _conversationRepository.UpdateConversationAsync(conversation);
         await _unitOfWork.SaveChangesAsync();
     }
-    
+
+    /// <summary>
+    /// Approve the use of a tool call in a conversation.
+    /// </summary>
+    /// <param name="conversationId">The unique identifier for the tool conversation.</param>
+    /// <param name="toolCallId">The unique identifier for the tool call.</param>
+    /// <exception cref="ArgumentException">Gets thrown when the conversation couldn't be found.</exception>
+    public async Task ApproveToolCall(Guid conversationId, string toolCallId)
+    {
+        var conversation = await _conversationRepository.FindByIdAsync(conversationId);
+
+        if (conversation is null)
+        {
+            throw new ArgumentException($"No conversation found for id {conversationId}");
+        }
+
+        var codingAgentContext = new CodingAgentContext
+        {
+            TargetDirectory = _codingAgentOptions.Value.TargetDirectory,
+            OperatingSystem = Environment.OSVersion.Platform.ToString()
+        };
+
+        var codingAgent = new CodingAgent(_applicationKernel, conversation, codingAgentContext, _logger);
+        await codingAgent.ApproveFunctionCall(toolCallId, Clients.Caller);
+
+        await _conversationRepository.UpdateConversationAsync(conversation);
+        await _unitOfWork.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Decline the use of a tool call in a conversation.
+    /// </summary>
+    /// <param name="conversationId">Unique identifier for the conversation.</param>
+    /// <param name="toolCallId">Unique identifier for the tool call.</param>
+    /// <exception cref="ArgumentException">Gets thrown when the conversation couldn't be found.</exception>
+    public async Task DeclineToolCall(Guid conversationId, string toolCallId)
+    {
+        var conversation = await _conversationRepository.FindByIdAsync(conversationId);
+
+        if (conversation is null)
+        {
+            throw new ArgumentException($"No conversation found for id {conversationId}");
+        }
+
+        var codingAgentContext = new CodingAgentContext
+        {
+            TargetDirectory = _codingAgentOptions.Value.TargetDirectory,
+            OperatingSystem = Environment.OSVersion.Platform.ToString()
+        };
+
+        var codingAgent = new CodingAgent(_applicationKernel, conversation, codingAgentContext, _logger);
+        await codingAgent.DeclineFunctionCall(toolCallId, Clients.Caller);
+
+        await _conversationRepository.UpdateConversationAsync(conversation);
+        await _unitOfWork.SaveChangesAsync();
+    }
+
     private async Task<Conversation> FindOrCreateConversationAsync(Guid conversationId)
     {
         var conversation = await _conversationRepository.FindByIdAsync(conversationId);
@@ -74,7 +130,7 @@ public class CodingAgentHub: Hub<ICodingAgentCallbacks>
         {
             conversation = await _conversationRepository.InsertConversationAsync(conversationId);
         }
-        
+
         return conversation;
     }
 }

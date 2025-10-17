@@ -5,40 +5,34 @@ using OpenAI.Realtime;
 
 namespace Helix.Data;
 
-public class ConversationRepository(ApplicationDbContext applicationDbContext): IConversationRepository
+public class ConversationRepository(ApplicationDbContext applicationDbContext) : IConversationRepository
 {
     public async Task<Conversation> InsertConversationAsync(Guid conversationId)
     {
         var conversation = new Conversation
         {
-            Id = conversationId,
+            Id = conversationId
         };
-        
+
         await applicationDbContext.AddAsync(conversation);
 
         return conversation;
     }
 
-    public async Task UpdateChatHistoryAsync(Guid conversationId, ChatHistory chatHistory)
+    public Task UpdateConversationAsync(Conversation conversation)
     {
-        var conversation = await applicationDbContext.Conversations
-            .SingleOrDefaultAsync(c => c.Id == conversationId);
-        
-        if (conversation != null)
-        {
-            conversation.ChatHistory = chatHistory;
-            applicationDbContext.Conversations.Update(conversation);
-        }
+        applicationDbContext.Conversations.Update(conversation);
+        return Task.CompletedTask;
     }
 
     public Task<Conversation?> FindByIdAsync(Guid conversationId)
     {
-        return applicationDbContext.Conversations.SingleOrDefaultAsync(x=>x.Id == conversationId);
+        return applicationDbContext.Conversations.SingleOrDefaultAsync(x => x.Id == conversationId);
     }
 
     public async Task<IEnumerable<Conversation>> FindAllAsync()
     {
         return await applicationDbContext.Conversations
-            .OrderByDescending(x=>x.DateCreated).ToListAsync();
+            .OrderByDescending(x => x.DateCreated).ToListAsync();
     }
 }
