@@ -1,16 +1,8 @@
-using System.Runtime.CompilerServices;
-using System.Text;
 using Helix.Agent.Plugins;
 using Helix.Agent.Plugins.Shell;
 using Helix.Agent.Plugins.TextEditor;
-using Helix.Hubs;
-using Helix.Models;
 using Helix.Shared;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.PromptTemplates.Handlebars;
@@ -32,9 +24,8 @@ public class CodingAgent
     private readonly SharedTools _sharedTools;
     private readonly ShellPlugin _shellPlugin;
     private readonly TextEditorPlugin _textEditorPlugin;
-    private readonly ILogger<CodingAgent>? _logger;
-    private readonly ChatHistory _chatHistory;
     private readonly Conversation _conversation;
+    private readonly CodingAgentContext _context;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CodingAgent"/>
@@ -42,16 +33,13 @@ public class CodingAgent
     /// <param name="kernel">Kernel instance to use</param>
     /// <param name="conversation">Conversation that we're working in</param>
     /// <param name="context">Agent context to provide</param>
-    /// <param name="logger">Logger to use for the agent</param>
-    public CodingAgent(Kernel kernel, Conversation conversation, CodingAgentContext context,
-        ILogger<CodingAgent>? logger = null)
+    public CodingAgent(Kernel kernel, Conversation conversation, CodingAgentContext context)
     {
         _agentKernel = kernel.Clone();
 
         _sharedTools = new SharedTools();
-        _logger = logger;
-        _chatHistory = conversation.ChatHistory;
         _conversation = conversation;
+        _context = context;
 
         _shellPlugin = new ShellPlugin(context);
         _textEditorPlugin = new TextEditorPlugin(context);
@@ -75,7 +63,7 @@ public class CodingAgent
         _sharedTools.ResetFinalToolOutput();
 
         var chatCompletionService = _agentKernel.GetRequiredService<IChatCompletionService>();
-        _chatHistory.AddUserMessage(userPrompt);
+        _conversation.ChatHistory.AddUserMessage(userPrompt);
 
         // Execute the agent loop to process the prompt.
         await ExecuteAgentLoopAsync(callbacks, chatCompletionService);
@@ -93,13 +81,13 @@ public class CodingAgent
         if (pendingFunctionCall is not null)
         {
             // Retrieve the pending function call information so we can run the function call.
-            var functionCallMessage = _chatHistory.Last();
+            var functionCallMessage = _conversation.ChatHistory.Last();
             var functionCalls = FunctionCallContent.GetFunctionCalls(functionCallMessage).ToList();
             var relatedFunctionCall = functionCalls.Single(x => x.Id == callId);
 
             // Execute the approved function call and add the response to the chat history.
             var response = relatedFunctionCall.InvokeAsync(_agentKernel);
-            _chatHistory.Add(response.Result.ToChatMessage());
+            _conversation.ChatHistory.Add(response.Result.ToChatMessage());
 
             // Remove the pending function call
             _conversation.PendingFunctionCalls.Remove(pendingFunctionCall);
@@ -126,7 +114,7 @@ public class CodingAgent
         if (pendingFunctionCall is not null)
         {
             // Retrieve the pending function call information so we can run the function call.
-            var functionCallMessage = _chatHistory.Last();
+            var functionCallMessage = _conversation.ChatHistory.Last();
             var functionCalls = FunctionCallContent.GetFunctionCalls(functionCallMessage).ToList();
             var relatedFunctionCall = functionCalls.Single(x => x.Id == callId);
 
@@ -135,7 +123,7 @@ public class CodingAgent
             var functionResultContent = new FunctionResultContent(relatedFunctionCall.FunctionName,
                 relatedFunctionCall.PluginName, result: "Error: User declined permission to execute this function.");
 
-            _chatHistory.Add(functionResultContent.ToChatMessage());
+            _conversation.ChatHistory.Add(functionResultContent.ToChatMessage());
 
             _conversation.PendingFunctionCalls.Remove(pendingFunctionCall);
         }
@@ -157,12 +145,17 @@ public class CodingAgent
         {
             iterations++;
 
+            // Create the prompt execution settings with the system prompt for the agent.
+            // We inject the system prompt separately from the chat history so we can update it with
+            // the most recent context information.
+            var promptExecutionSettings = await CreatePromptExecutionSettingsAsync(_context);
+
             var response = await chatCompletionService.GetChatMessageContentAsync(
-                _chatHistory, new AzureOpenAIPromptExecutionSettings());
+                _conversation.ChatHistory, promptExecutionSettings);
 
             // Always add the response to the chat history.
             // We'll apply special processing after storing the response.
-            _chatHistory.Add(response);
+            _conversation.ChatHistory.Add(response);
 
             // Agents can return regular text messages, so we'll handle those first.
             // Text responses never include function calls.
@@ -180,7 +173,10 @@ public class CodingAgent
                 await ProcessFunctionCalls(functionCalls, callbacks);
 
                 // Pause the agent for now, we'll resume when we get permission from the user.
-                if (_conversation.PendingFunctionCalls.Any()) break;
+                if (_conversation.PendingFunctionCalls.Any())
+                {
+                    break;
+                }
 
                 // Check if we got a final_output call.
                 // This is a signal tool to stop the processing.
@@ -220,16 +216,55 @@ public class CodingAgent
             else
             {
                 var output = await functionCall.InvokeAsync(_agentKernel);
-                _chatHistory.Add(output.ToChatMessage());
+                _conversation.ChatHistory.Add(output.ToChatMessage());
             }
     }
 
     private bool RequiresPermission(FunctionCallContent content)
     {
-        if (_shellPlugin.RequiresPermission(content)) return true;
+        if (_shellPlugin.RequiresPermission(content))
+        {
+            return true;
+        }
 
-        if (_textEditorPlugin.RequiresPermission(content)) return true;
+        if (_textEditorPlugin.RequiresPermission(content))
+        {
+            return true;
+        }
 
         return false;
+    }
+
+    private async Task<AzureOpenAIPromptExecutionSettings> CreatePromptExecutionSettingsAsync(
+        CodingAgentContext context)
+    {
+        var systemPrompt = await RenderSystemPrompt(context);
+
+        return new AzureOpenAIPromptExecutionSettings
+        {
+            ChatSystemPrompt = systemPrompt
+        };
+    }
+
+    private async Task<string> RenderSystemPrompt(CodingAgentContext context)
+    {
+        var promptTemplateConfig = new PromptTemplateConfig
+        {
+            Template = EmbeddedResource.Read("Agent.Prompts.Instructions.md")
+        };
+
+        var promptTemplateFactory = new HandlebarsPromptTemplateFactory
+        {
+            AllowDangerouslySetContent = true
+        };
+
+        var promptTemplate = promptTemplateFactory.Create(promptTemplateConfig);
+
+        return await promptTemplate.RenderAsync(_agentKernel, new KernelArguments
+        {
+            ["working_directory"] = context.TargetDirectory,
+            ["current_date_time"] = context.CurrentDateTime,
+            ["operating_system"] = context.OperatingSystem
+        });
     }
 }
