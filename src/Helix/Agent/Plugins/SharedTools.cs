@@ -27,13 +27,18 @@ public class SharedTools
     /// iterate until it reaches the maximum number of iterations defined in the agent code.
     /// </remarks>
     [KernelFunction("final_output")]
-    [Description("The final output tool MUST be called with final output to the user. The output should be a concise summary of the work completed.")]
-    public void FinalToolOutput([Description("The final summary of the work completed.")] string output)
+    [Description(
+        """
+        Use this tool to provide the final answer to the user.
+        The final output tool MUST be called with final answer to the user.
+        """
+    )]
+    public void FinalToolOutput([Description("The final answer to the user.")] string output)
     {
-       FinalToolOutputValue = output;
-       FinalToolOutputReady = true;
+        FinalToolOutputValue = output;
+        FinalToolOutputReady = true;
     }
-    
+
     public void ResetFinalToolOutput()
     {
         FinalToolOutputReady = false;
