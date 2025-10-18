@@ -31,7 +31,7 @@ function handleSelectConversation(id: string) {
 </script>
 
 <template>
-    <Sidebar>
+    <Sidebar variant="inset" collapsible="none">
         <SidebarHeader>
             <div class="px-3">
                 <h1 class="text-xl font-bold">Helix</h1>

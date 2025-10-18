@@ -37,7 +37,7 @@ export const useCodingAgent = defineStore("coding-agent", () => {
 
   function connect() {
     connection.value = new HubConnectionBuilder()
-      .withUrl("/hubs/coding-agent")
+      .withUrl("/hubs/coding")
       .withAutomaticReconnect()
       .build();
 
@@ -104,10 +104,7 @@ export const useCodingAgent = defineStore("coding-agent", () => {
       timestamp: new Date(),
     });
 
-    await connection.value?.invoke("SubmitPrompt", [
-      conversationId.value,
-      prompt,
-    ]);
+    await connection.value?.invoke("SubmitPrompt", conversationId.value, prompt);
   }
 
   async function loadHistory() {

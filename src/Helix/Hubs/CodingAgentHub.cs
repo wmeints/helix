@@ -14,6 +14,7 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
     private readonly ICodingAgentFactory _codingAgentFactory;
     private readonly IConversationRepository _conversationRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<CodingAgentHub> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CodingAgentHub"/> class.
@@ -21,12 +22,15 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
     /// <param name="codingAgentFactory">Factory for creating coding agent instances</param>
     /// <param name="conversationRepository">Repository to load/save data</param>
     /// <param name="unitOfWork">Unit of work for the agent</param>
+    /// <param name="logger">Logger instance for hub operations</param>
     public CodingAgentHub(ICodingAgentFactory codingAgentFactory,
-        IConversationRepository conversationRepository, IUnitOfWork unitOfWork)
+        IConversationRepository conversationRepository, IUnitOfWork unitOfWork,
+        ILogger<CodingAgentHub> logger)
     {
         _codingAgentFactory = codingAgentFactory;
         _conversationRepository = conversationRepository;
         _unitOfWork = unitOfWork;
+        _logger = logger;
     }
 
     /// <summary>
@@ -39,13 +43,25 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
     /// </remarks>
     public async Task SubmitPrompt(Guid conversationId, string userPrompt)
     {
-        var conversation = await FindOrCreateConversationAsync(conversationId);
+        try
+        {
+            _logger.LogInformation("SubmitPrompt called for conversation {ConversationId}", conversationId);
 
-        var codingAgent = _codingAgentFactory.Create(conversation);
-        await codingAgent.SubmitPromptAsync(userPrompt, GetAgentCallbacks());
+            var conversation = await FindOrCreateConversationAsync(conversationId);
 
-        await _conversationRepository.UpdateConversationAsync(conversation);
-        await _unitOfWork.SaveChangesAsync();
+            var codingAgent = _codingAgentFactory.Create(conversation);
+            await codingAgent.SubmitPromptAsync(userPrompt, GetAgentCallbacks());
+
+            await _conversationRepository.UpdateConversationAsync(conversation);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("SubmitPrompt completed for conversation {ConversationId}", conversationId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in SubmitPrompt for conversation {ConversationId}", conversationId);
+            throw;
+        }
     }
 
     /// <summary>
@@ -56,18 +72,33 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
     /// <exception cref="ArgumentException">Gets thrown when the conversation couldn't be found.</exception>
     public async Task ApproveToolCall(Guid conversationId, string toolCallId)
     {
-        var conversation = await _conversationRepository.FindByIdAsync(conversationId);
-
-        if (conversation is null)
+        try
         {
-            throw new ArgumentException($"No conversation found for id {conversationId}");
+            _logger.LogInformation("ApproveToolCall called for conversation {ConversationId}, tool call {ToolCallId}",
+                conversationId, toolCallId);
+
+            var conversation = await _conversationRepository.FindByIdAsync(conversationId);
+
+            if (conversation is null)
+            {
+                throw new ArgumentException($"No conversation found for id {conversationId}");
+            }
+
+            var codingAgent = _codingAgentFactory.Create(conversation);
+            await codingAgent.ApproveFunctionCall(toolCallId, GetAgentCallbacks());
+
+            await _conversationRepository.UpdateConversationAsync(conversation);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("ApproveToolCall completed for conversation {ConversationId}, tool call {ToolCallId}",
+                conversationId, toolCallId);
         }
-
-        var codingAgent = _codingAgentFactory.Create(conversation);
-        await codingAgent.ApproveFunctionCall(toolCallId, GetAgentCallbacks());
-
-        await _conversationRepository.UpdateConversationAsync(conversation);
-        await _unitOfWork.SaveChangesAsync();
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ApproveToolCall for conversation {ConversationId}, tool call {ToolCallId}",
+                conversationId, toolCallId);
+            throw;
+        }
     }
 
     /// <summary>
@@ -78,18 +109,33 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
     /// <exception cref="ArgumentException">Gets thrown when the conversation couldn't be found.</exception>
     public async Task DeclineToolCall(Guid conversationId, string toolCallId)
     {
-        var conversation = await _conversationRepository.FindByIdAsync(conversationId);
-
-        if (conversation is null)
+        try
         {
-            throw new ArgumentException($"No conversation found for id {conversationId}");
+            _logger.LogInformation("DeclineToolCall called for conversation {ConversationId}, tool call {ToolCallId}",
+                conversationId, toolCallId);
+
+            var conversation = await _conversationRepository.FindByIdAsync(conversationId);
+
+            if (conversation is null)
+            {
+                throw new ArgumentException($"No conversation found for id {conversationId}");
+            }
+
+            var codingAgent = _codingAgentFactory.Create(conversation);
+            await codingAgent.DeclineFunctionCall(toolCallId, GetAgentCallbacks());
+
+            await _conversationRepository.UpdateConversationAsync(conversation);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("DeclineToolCall completed for conversation {ConversationId}, tool call {ToolCallId}",
+                conversationId, toolCallId);
         }
-
-        var codingAgent = _codingAgentFactory.Create(conversation);
-        await codingAgent.DeclineFunctionCall(toolCallId, GetAgentCallbacks());
-
-        await _conversationRepository.UpdateConversationAsync(conversation);
-        await _unitOfWork.SaveChangesAsync();
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in DeclineToolCall for conversation {ConversationId}, tool call {ToolCallId}",
+                conversationId, toolCallId);
+            throw;
+        }
     }
 
     /// <summary>
@@ -108,6 +154,7 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
         if (conversation == null)
         {
             conversation = await _conversationRepository.InsertConversationAsync(conversationId);
+            await _unitOfWork.SaveChangesAsync();
         }
 
         return conversation;

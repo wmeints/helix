@@ -10,24 +10,24 @@ public interface ICodingAgentCallbacks
     /// </summary>
     /// <param name="content">Content of the response</param>
     Task ReceiveAgentResponse(string content);
-    
+
     /// <summary>
     /// Invoke to send information about a toolcall to the client
     /// </summary>
     /// <param name="toolName">Name of the tool that was used</param>
-    /// <param name="arguments">List of arguments for the tool</param>
-    Task ReceiveToolCall(string toolName, List<string> arguments);
-    
+    /// <param name="arguments">Dictionary of arguments for the tool</param>
+    Task ReceiveToolCall(string toolName, Dictionary<string, string> arguments);
+
     /// <summary>
     /// Invoke to mark the agent task completed.
     /// </summary>
     Task AgentCompleted();
-    
+
     /// <summary>
     /// Invoke to indicate to the client we reached the maximum number of iterations.
     /// </summary>
     Task MaxIterationsReached();
-    
+
     /// <summary>
     /// Invoke to indicate to the client that the request was cancelled.
     /// </summary>

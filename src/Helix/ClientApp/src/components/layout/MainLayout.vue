@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   SidebarProvider,
+  SidebarInset
 } from "@/components/ui/sidebar";
 import ConversationSidebar from "./ConversationSidebar.vue";
 </script>
@@ -8,8 +9,8 @@ import ConversationSidebar from "./ConversationSidebar.vue";
 <template>
   <SidebarProvider>
     <ConversationSidebar />
-    <main class="flex flex-1 flex-col gap-4 p-4">
+    <SidebarInset>
       <slot />
-    </main>
+    </SidebarInset>
   </SidebarProvider>
 </template>

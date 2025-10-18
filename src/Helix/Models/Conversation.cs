@@ -21,8 +21,8 @@ public class Conversation
     /// <summary>
     /// Collection of messages in this conversation.
     /// </summary>
-    public ChatHistory ChatHistory { get; set; }
-    
+    public ChatHistory ChatHistory { get; set; } = new();
+
     /// <summary>
     /// The date the conversation was started.
     /// </summary>
