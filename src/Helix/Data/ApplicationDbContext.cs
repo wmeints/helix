@@ -44,6 +44,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                     (c1, c2) => c1 == c2 || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
                     c => c.Aggregate(0, (hash, msg) => HashCode.Combine(hash, msg.GetHashCode())),
                     c => JsonSerializer.Deserialize<ChatHistory>(JsonSerializer.Serialize(c, (JsonSerializerOptions?)null), (JsonSerializerOptions?)null) ?? new ChatHistory()));
+
+            // Pending function calls are serialized as JSON to track function calls requiring user permission
+            entity.Property(x => x.PendingFunctionCalls)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<PendingFunctionCall>>(v, (JsonSerializerOptions?)null) ?? new List<PendingFunctionCall>())
+                .Metadata.SetValueComparer(new ValueComparer<List<PendingFunctionCall>>(
+                    (c1, c2) => c1 == c2 || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+                    c => c.Aggregate(0, (hash, pfc) => HashCode.Combine(hash, pfc.GetHashCode())),
+                    c => JsonSerializer.Deserialize<List<PendingFunctionCall>>(JsonSerializer.Serialize(c, (JsonSerializerOptions?)null), (JsonSerializerOptions?)null) ?? new List<PendingFunctionCall>()));
         });
     }
 }
