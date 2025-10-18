@@ -154,6 +154,7 @@ public class CodingAgentHub : Hub<ICodingAgentCallbacks>
         if (conversation == null)
         {
             conversation = await _conversationRepository.InsertConversationAsync(conversationId);
+            await _unitOfWork.SaveChangesAsync();
         }
 
         return conversation;
