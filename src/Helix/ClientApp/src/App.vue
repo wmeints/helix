@@ -1,10 +1,4 @@
 <script setup lang="ts">
-<<<<<<< Updated upstream
-</script>
-
-<template>
-    <h1>Hello world</h1>
-=======
 import { onMounted } from "vue";
 import { useCodingAgent } from "@/stores/coding-agent";
 import MainLayout from "@/components/layout/MainLayout.vue";
@@ -21,6 +15,4 @@ onMounted(() => {
   <MainLayout>
     <ConversationView />
   </MainLayout>
->>>>>>> Stashed changes
 </template>
-
