@@ -1,27 +1,23 @@
 # Introduction and goals
 
-Helix is a console-based coding agent that is meant as a demonstration
-how to build a coding agent yourself in C# using Semantic Kernel.
+Helix is a coding agent that focuses on providing a local open-source experience
+for writing code. 
+
+## Project goal
+
+Provide an open-source coding agent experience with a local web interface so
+developers can use it without having to take out a subscription with one of
+the big providers.
 
 ## High level requirements
 
-- This project provides an interactive agent that can help you with coding
-  tasks such as writing tests and implementing user stories.
-- The agent must be able to work with a codebase on the user's computer
-  without requiring tools beyond what is included with the installation of 
-  the product.
-- Users must also be able to deploy the agent to a central server and provide
-  it with access to their sources stored in Azure DevOps, Gitlab or Github.
+- Developers can use local models with the agent to build code. 
+- Developers can extend the agent with their custom prompts stored in markdown.
+- Developers can extend the behavior of the agent with MCP servers.
 
 ## Quality goals
 
-Since this is a learning project, we only provide a limited set of quality goals
-that help guide the workshop. You shouldn't run this agent in production without
-additional work.
-
-| Quality Goal | Description                                                                             |
-| ------------ | --------------------------------------------------------------------------------------- |
-| Q001         | The agent is reasonably safe to use under normal operational conditions.                |
-| Q002         | The agent is resistant against LLM provider failures.                                   |
-| Q003         | The agent is extensible through MCP servers so developers can improve its functionality |
+- The agent asks for permission for potential destructive commands.
+- The agent automatically retries model calls when they fail due to quota
+  limitations or other transient problems.
 
