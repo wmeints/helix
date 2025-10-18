@@ -155,8 +155,6 @@ public class CodingAgent
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
             };
 
-            var chatCompletionService = _agentKernel.Services.GetRequiredService<IChatCompletionService>();
-
             var response = await chatCompletionService.GetChatMessageContentAsync(
                 _conversation.ChatHistory, promptExecutionSettings, _agentKernel);
 
@@ -230,6 +228,10 @@ public class CodingAgent
             {
                 var output = await functionCall.InvokeAsync(_agentKernel);
                 _conversation.ChatHistory.Add(output.ToChatMessage());
+
+                await callbacks.ReceiveToolCall(
+                    functionCall.FunctionName,
+                    ParseFunctionCallArguments(functionCall.Arguments));
             }
     }
 
@@ -281,5 +283,20 @@ public class CodingAgent
         {
             _conversation.ChatHistory.RemoveAt(0);
         }
+    }
+
+    private Dictionary<string, string> ParseFunctionCallArguments(KernelArguments? arguments)
+    {
+        var parsedArguments = new Dictionary<string, string>();
+
+        if (arguments is not null)
+        {
+            foreach (var key in arguments.Keys)
+            {
+                parsedArguments[key] = arguments[key]?.ToString() ?? string.Empty;
+            }
+        }
+
+        return parsedArguments;
     }
 }
