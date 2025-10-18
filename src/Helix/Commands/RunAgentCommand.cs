@@ -69,6 +69,38 @@ public class RunAgentCommand : AsyncCommand<RunAgentCommandSettings>
         builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
         builder.Services.AddScoped<ICodingAgentFactory, CodingAgentFactory>();
 
+        // Configure OpenTelemetry
+        var serviceName = builder.Configuration.GetValue<string>("OpenTelemetry:ServiceName") ?? "Helix";
+        var serviceVersion = builder.Configuration.GetValue<string>("OpenTelemetry:ServiceVersion") ?? "1.0.0";
+        var otlpEndpoint = builder.Configuration.GetValue<string>("OpenTelemetry:OtlpEndpoint") ?? "http://localhost:4317";
+
+        builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName: serviceName, serviceVersion: serviceVersion))
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddSource("Microsoft.SemanticKernel*")
+                .AddEntityFrameworkCoreInstrumentation(options =>
+                {
+                    options.SetDbStatementForText = true;
+                    options.SetDbStatementForStoredProcedure = true;
+                })
+                .AddOtlpExporter(options =>
+                {
+                    options.Endpoint = new Uri(otlpEndpoint);
+                }))
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddMeter("Microsoft.SemanticKernel*")
+                .AddOtlpExporter(options =>
+                {
+                    options.Endpoint = new Uri(otlpEndpoint);
+                }));
+
+        AppContext.SetSwitch("Microsoft.SemanticKernel.Experimental.GenAI.EnableOTelDiagnosticsSensitive", true);
+
         var app = builder.Build();
 
         using (var scope = app.Services.CreateScope())
