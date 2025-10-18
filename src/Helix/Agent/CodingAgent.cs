@@ -150,10 +150,15 @@ public class CodingAgent
             iterations++;
 
             // Create the prompt execution settings for the agent.
-            var promptExecutionSettings = new AzureOpenAIPromptExecutionSettings();
+            var promptExecutionSettings = new AzureOpenAIPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
+            };
+
+            var chatCompletionService = _agentKernel.Services.GetRequiredService<IChatCompletionService>();
 
             var response = await chatCompletionService.GetChatMessageContentAsync(
-                _conversation.ChatHistory, promptExecutionSettings);
+                _conversation.ChatHistory, promptExecutionSettings, _agentKernel);
 
             // Always add the response to the chat history.
             // We'll apply special processing after storing the response.
