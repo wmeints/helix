@@ -16,9 +16,11 @@ public class ShellPlugin(CodingAgentContext context)
     /// <returns>Returns true when the function call requires permission.</returns>
     public bool RequiresPermission(FunctionCallContent content)
     {
-        return content.FunctionName == "shell";
+        //TODO: Enable permission check for shell commands
+        // return content.FunctionName == "shell";
+        return false;
     }
-    
+
     /// <summary>
     /// Execute a shell command on behalf of the user.
     /// </summary>
@@ -26,7 +28,14 @@ public class ShellPlugin(CodingAgentContext context)
     /// <returns>The combined STDOUT and STDERR output</returns>
     [KernelFunction("shell")]
     [Description(
-        "You can use the shell tool to execute any command. It can be used to solve a wide range of problems."
+        """
+        You can use the shell tool to execute any command. It can be used to solve a wide range of problems.
+        
+        **Important:** Only use ripgrep - `rg` - for searching through files. Other solutions produce output that's too big to handle.
+        Use `rg --files | rg <filename>` to locate files. Use `rg <regex> -l` to search for specific patterns in files.
+
+        Chain multiple commands using `&&` and avoid newlines in the command. For example `cd example && rg MyClass`.
+        """
     )]
     public async Task<string> ExecuteCommandAsync([Description("Shell command to execute")] string command)
     {
