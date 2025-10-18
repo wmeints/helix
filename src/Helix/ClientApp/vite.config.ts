@@ -17,9 +17,24 @@ export default defineConfig({
         proxy: {
             "/hubs": {
                 target: "http://localhost:5000",
+                changeOrigin: true,
+                ws: true,
+                configure: (proxy) => {
+                    proxy.on('proxyReq', (proxyReq) => {
+                        proxyReq.setHeader('Access-Control-Allow-Methods', '*');
+                        proxyReq.setHeader('Access-Control-Allow-Headers', '*');
+                    });
+                }
             },
             "/api": {
-                target: "http://localhost:5000"
+                target: "http://localhost:5000",
+                changeOrigin: true,
+                configure: (proxy) => {
+                    proxy.on('proxyReq', (proxyReq) => {
+                        proxyReq.setHeader('Access-Control-Allow-Methods', '*');
+                        proxyReq.setHeader('Access-Control-Allow-Headers', '*');
+                    });
+                }
             }
         }
     }

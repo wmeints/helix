@@ -34,7 +34,7 @@ public class RunAgentCommand : AsyncCommand<RunAgentCommandSettings>
                                           "AZURE_OPENAI_DEPLOYMENT environment variable is not set.");
 
         builder.Services.AddKernel()
-            .AddAzureOpenAIChatClient(
+            .AddAzureOpenAIChatCompletion(
                 languageModelDeployment,
                 new AzureOpenAIClient(new Uri(languageModelEndpoint),
                     new ApiKeyCredential(languageModelKey)
@@ -51,8 +51,18 @@ public class RunAgentCommand : AsyncCommand<RunAgentCommandSettings>
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlite(connectionString));
 
-        builder.Services.AddSignalR();
-        builder.Services.AddCors();
+        builder.Services.AddSignalR(options =>
+        {
+            options.EnableDetailedErrors = true;
+        });
+
+        builder.Services.AddCors(policy => policy.AddDefaultPolicy(policyBuilder =>
+        {
+            policyBuilder
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials();
+        }));
 
         builder.Services.AddHostedService<OpenDefaultBrowser>();
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -67,8 +77,9 @@ public class RunAgentCommand : AsyncCommand<RunAgentCommandSettings>
             await dbContext.Database.MigrateAsync();
         }
 
-        app.UseStaticFiles();
         app.UseCors();
+
+        app.UseStaticFiles();
 
         app.MapHub<CodingAgentHub>("/hubs/coding");
         app.MapGetConversations();

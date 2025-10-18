@@ -141,14 +141,16 @@ public class CodingAgent
     {
         var iterations = 0;
 
+        // Render the system prompt and add it as the first message in the chat history
+        var systemPrompt = await RenderSystemPrompt(_context);
+        _conversation.ChatHistory.Insert(0, new ChatMessageContent(AuthorRole.System, systemPrompt));
+
         while (true)
         {
             iterations++;
 
-            // Create the prompt execution settings with the system prompt for the agent.
-            // We inject the system prompt separately from the chat history so we can update it with
-            // the most recent context information.
-            var promptExecutionSettings = await CreatePromptExecutionSettingsAsync(_context);
+            // Create the prompt execution settings for the agent.
+            var promptExecutionSettings = new AzureOpenAIPromptExecutionSettings();
 
             var response = await chatCompletionService.GetChatMessageContentAsync(
                 _conversation.ChatHistory, promptExecutionSettings);
@@ -175,6 +177,8 @@ public class CodingAgent
                 // Pause the agent for now, we'll resume when we get permission from the user.
                 if (_conversation.PendingFunctionCalls.Any())
                 {
+                    // Remove the system prompt before exiting
+                    RemoveSystemPromptFromHistory();
                     break;
                 }
 
@@ -182,6 +186,8 @@ public class CodingAgent
                 // This is a signal tool to stop the processing.
                 if (_sharedTools.FinalToolOutputReady)
                 {
+                    // Remove the system prompt before exiting
+                    RemoveSystemPromptFromHistory();
                     await callbacks.AgentCompleted();
                     break;
                 }
@@ -191,6 +197,8 @@ public class CodingAgent
             // The user can choose to continue the conversation if needed.
             if (iterations > MaxIterations)
             {
+                // Remove the system prompt before exiting
+                RemoveSystemPromptFromHistory();
                 await callbacks.MaxIterationsReached();
                 break;
             }
@@ -235,17 +243,6 @@ public class CodingAgent
         return false;
     }
 
-    private async Task<AzureOpenAIPromptExecutionSettings> CreatePromptExecutionSettingsAsync(
-        CodingAgentContext context)
-    {
-        var systemPrompt = await RenderSystemPrompt(context);
-
-        return new AzureOpenAIPromptExecutionSettings
-        {
-            ChatSystemPrompt = systemPrompt
-        };
-    }
-
     private async Task<string> RenderSystemPrompt(CodingAgentContext context)
     {
         var promptTemplateConfig = new PromptTemplateConfig
@@ -267,5 +264,17 @@ public class CodingAgent
             ["current_date_time"] = context.CurrentDateTime,
             ["operating_system"] = context.OperatingSystem
         });
+    }
+
+    /// <summary>
+    /// Removes the system prompt from the chat history.
+    /// </summary>
+    private void RemoveSystemPromptFromHistory()
+    {
+        if (_conversation.ChatHistory.Count > 0 &&
+            _conversation.ChatHistory[0].Role == AuthorRole.System)
+        {
+            _conversation.ChatHistory.RemoveAt(0);
+        }
     }
 }

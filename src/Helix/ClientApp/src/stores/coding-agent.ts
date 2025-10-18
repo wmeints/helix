@@ -37,7 +37,11 @@ export const useCodingAgent = defineStore('coding-agent', () => {
 
   function connect() {
     connection.value = new HubConnectionBuilder()
+<<<<<<< Updated upstream
       .withUrl('/hubs/coding-agent')
+=======
+      .withUrl("/hubs/coding")
+>>>>>>> Stashed changes
       .withAutomaticReconnect()
       .build()
 
@@ -101,7 +105,11 @@ export const useCodingAgent = defineStore('coding-agent', () => {
       timestamp: new Date(),
     })
 
+<<<<<<< Updated upstream
     await connection.value?.invoke('SubmitPrompt', [conversationId.value, prompt])
+=======
+    await connection.value?.invoke("SubmitPrompt", conversationId.value, prompt);
+>>>>>>> Stashed changes
   }
 
   async function loadHistory() {
