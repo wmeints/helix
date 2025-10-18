@@ -229,9 +229,18 @@ public class CodingAgent
                 var output = await functionCall.InvokeAsync(_agentKernel);
                 _conversation.ChatHistory.Add(output.ToChatMessage());
 
-                await callbacks.ReceiveToolCall(
-                    functionCall.FunctionName,
-                    ParseFunctionCallArguments(functionCall.Arguments));
+                // Report the results back to the user. The final_output tool is special and indicates the agent is done.
+                // We aren't going to get a nice message from the agent when it calls final_output, so we mimic that the agent does that.
+                if (functionCall.FunctionName == "final_output")
+                {
+                    await callbacks.ReceiveAgentResponse(functionCall.Arguments?["output"]?.ToString() ?? string.Empty);
+                }
+                else
+                {
+                    await callbacks.ReceiveToolCall(
+                        functionCall.FunctionName,
+                        ParseFunctionCallArguments(functionCall.Arguments));
+                }
             }
     }
 
