@@ -5,6 +5,7 @@ using Helix.Models;
 using Helix.Services;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Moq;
@@ -385,7 +386,7 @@ public class CodingAgentHubTests
             IConversationRepository conversationRepository,
             IUnitOfWork unitOfWork,
             ICodingAgentCallbacks testCaller)
-            : base(codingAgentFactory, conversationRepository, unitOfWork)
+            : base(codingAgentFactory, conversationRepository, unitOfWork, new Logger<CodingAgentHub>(new LoggerFactory()))
         {
             _testCaller = testCaller;
         }
