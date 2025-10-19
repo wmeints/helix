@@ -1,11 +1,15 @@
+using Azure;
 using Helix.Agent.Plugins;
 using Helix.Agent.Plugins.Shell;
 using Helix.Agent.Plugins.TextEditor;
 using Helix.Shared;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.PromptTemplates.Handlebars;
+using Polly;
+using Polly.Retry;
 
 namespace Helix.Agent;
 
@@ -26,6 +30,8 @@ public class CodingAgent
     private readonly TextEditorPlugin _textEditorPlugin;
     private readonly Conversation _conversation;
     private readonly CodingAgentContext _context;
+    private readonly ILogger<CodingAgent> _logger;
+    private readonly ResiliencePipeline _retryPipeline;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CodingAgent"/>
@@ -33,13 +39,15 @@ public class CodingAgent
     /// <param name="kernel">Kernel instance to use</param>
     /// <param name="conversation">Conversation that we're working in</param>
     /// <param name="context">Agent context to provide</param>
-    public CodingAgent(Kernel kernel, Conversation conversation, CodingAgentContext context)
+    /// <param name="logger">Logger instance for logging retry attempts and errors</param>
+    public CodingAgent(Kernel kernel, Conversation conversation, CodingAgentContext context, ILogger<CodingAgent> logger)
     {
         _agentKernel = kernel.Clone();
 
         _sharedTools = new SharedTools();
         _conversation = conversation;
         _context = context;
+        _logger = logger;
 
         _shellPlugin = new ShellPlugin(context);
         _textEditorPlugin = new TextEditorPlugin(context);
@@ -48,6 +56,9 @@ public class CodingAgent
         _agentKernel.Plugins.AddFromObject(_sharedTools);
         _agentKernel.Plugins.AddFromObject(_shellPlugin);
         _agentKernel.Plugins.AddFromObject(_textEditorPlugin);
+
+        // Initialize the retry pipeline once
+        _retryPipeline = CreateRetryPipeline();
     }
 
     /// <summary>
@@ -155,8 +166,9 @@ public class CodingAgent
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
             };
 
-            var response = await chatCompletionService.GetChatMessageContentAsync(
-                _conversation.ChatHistory, promptExecutionSettings, _agentKernel);
+            var response = await _retryPipeline.ExecuteAsync(async cancellationToken =>
+                await chatCompletionService.GetChatMessageContentAsync(
+                    _conversation.ChatHistory, promptExecutionSettings, _agentKernel, cancellationToken));
 
             // Always add the response to the chat history.
             // We'll apply special processing after storing the response.
@@ -292,6 +304,44 @@ public class CodingAgent
         {
             _conversation.ChatHistory.RemoveAt(0);
         }
+    }
+
+    /// <summary>
+    /// Creates a retry pipeline to handle rate limit errors from Azure OpenAI.
+    /// </summary>
+    /// <returns>A configured resilience pipeline with retry logic.</returns>
+    private ResiliencePipeline CreateRetryPipeline()
+    {
+        return new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                ShouldHandle = new PredicateBuilder().Handle<RequestFailedException>(ex => ex.Status == 429),
+                MaxRetryAttempts = 3,
+                DelayGenerator = args =>
+                {
+                    // Use Retry-After header if available
+                    if (args.Outcome.Exception is RequestFailedException reqEx &&
+                        reqEx.GetRawResponse()?.Headers.TryGetValue("Retry-After", out var retryAfter) == true)
+                    {
+                        if (int.TryParse(retryAfter, out var retryAfterSeconds))
+                        {
+                            return ValueTask.FromResult<TimeSpan?>(TimeSpan.FromSeconds(retryAfterSeconds));
+                        }
+                    }
+
+                    // Otherwise use exponential backoff
+                    return ValueTask.FromResult<TimeSpan?>(TimeSpan.FromSeconds(Math.Pow(2, args.AttemptNumber + 1)));
+                },
+                OnRetry = args =>
+                {
+                    _logger.LogWarning(
+                        "Rate limit hit. Retrying attempt {AttemptNumber} after {DelaySeconds}s",
+                        args.AttemptNumber + 1,
+                        args.RetryDelay.TotalSeconds);
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
     private Dictionary<string, string> ParseFunctionCallArguments(KernelArguments? arguments)
