@@ -39,8 +39,13 @@ public class CodingAgentTests
             CurrentDateTime = DateTime.UtcNow
         };
 
+        var mockAgentInstructions = new Mock<IAgentInstructions>();
+        mockAgentInstructions.Setup(x => x.InjectAsync(It.IsAny<ChatHistory>(), It.IsAny<CodingAgentContext>()))
+            .Returns(Task.CompletedTask);
+        mockAgentInstructions.Setup(x => x.Remove(It.IsAny<ChatHistory>()));
+
         var mockLogger = new Mock<ILogger<CodingAgent>>();
-        var agent = new CodingAgent(kernel, conversation, context, mockLogger.Object);
+        var agent = new CodingAgent(kernel, conversation, context, mockAgentInstructions.Object, mockLogger.Object);
 
         // Create a function call content for final_output
         var functionCallContent = new FunctionCallContent(
@@ -103,8 +108,13 @@ public class CodingAgentTests
     //         CurrentDateTime = DateTime.UtcNow
     //     };
 
+    //     var mockAgentInstructions = new Mock<IAgentInstructions>();
+    //     mockAgentInstructions.Setup(x => x.InjectAsync(It.IsAny<ChatHistory>(), It.IsAny<CodingAgentContext>()))
+    //         .Returns(Task.CompletedTask);
+    //     mockAgentInstructions.Setup(x => x.Remove(It.IsAny<ChatHistory>()));
+
     //     var mockLogger = new Mock<ILogger<CodingAgent>>();
-    //     var agent = new CodingAgent(kernel, conversation, context, mockLogger.Object);
+    //     var agent = new CodingAgent(kernel, conversation, context, mockAgentInstructions.Object, mockLogger.Object);
 
     //     // Create a function call content for a shell command (which requires permission)
     //     var functionCallContent = new FunctionCallContent(
