@@ -1,4 +1,5 @@
 using Helix.Models;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 
@@ -11,16 +12,19 @@ public class CodingAgentFactory : ICodingAgentFactory
 {
     private readonly Kernel _applicationKernel;
     private readonly IOptions<CodingAgentOptions> _codingAgentOptions;
+    private readonly ILoggerFactory _loggerFactory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CodingAgentFactory"/> class.
     /// </summary>
     /// <param name="applicationKernel">The Semantic Kernel instance to use for the agent.</param>
     /// <param name="codingAgentOptions">The configuration options for the coding agent.</param>
-    public CodingAgentFactory(Kernel applicationKernel, IOptions<CodingAgentOptions> codingAgentOptions)
+    /// <param name="loggerFactory">The logger factory for creating logger instances.</param>
+    public CodingAgentFactory(Kernel applicationKernel, IOptions<CodingAgentOptions> codingAgentOptions, ILoggerFactory loggerFactory)
     {
         _applicationKernel = applicationKernel;
         _codingAgentOptions = codingAgentOptions;
+        _loggerFactory = loggerFactory;
     }
 
     /// <summary>
@@ -37,6 +41,8 @@ public class CodingAgentFactory : ICodingAgentFactory
             CurrentDateTime = DateTime.UtcNow
         };
 
-        return new CodingAgent(_applicationKernel, conversation, codingAgentContext);
+        var logger = _loggerFactory.CreateLogger<CodingAgent>();
+
+        return new CodingAgent(_applicationKernel, conversation, codingAgentContext, logger);
     }
 }

@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  jaeger:
+    image: docker.io/jaegertracing/all-in-one:latest
+    container_name: helix-jaeger
+    restart: unless-stopped
+    ports:
+      # OTLP gRPC receiver
+      - "4317:4317"
+      # OTLP HTTP receiver
+      - "4318:4318"
+      # Jaeger UI
+      - "16686:16686"
+      # Jaeger collector HTTP
+      - "14268:14268"
+      # Jaeger collector gRPC
+      - "14250:14250"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=debug
+    networks:
+      - helix-network
+
+networks:
+  helix-network:
+    driver: bridge
