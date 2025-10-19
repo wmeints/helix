@@ -46,6 +46,7 @@ public class RunAgentCommand : AsyncCommand<RunAgentCommandSettings>
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
         builder.Services.AddScoped<ICodingAgentFactory, CodingAgentFactory>();
+        builder.Services.AddSingleton<IAgentInstructions, AgentInstructions>();
 
         ConfigureOpenTelemetry(builder);
 

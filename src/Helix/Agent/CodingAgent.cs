@@ -2,12 +2,10 @@ using Azure;
 using Helix.Agent.Plugins;
 using Helix.Agent.Plugins.Shell;
 using Helix.Agent.Plugins.TextEditor;
-using Helix.Shared;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
-using Microsoft.SemanticKernel.PromptTemplates.Handlebars;
 using Polly;
 using Polly.Retry;
 
@@ -32,6 +30,7 @@ public class CodingAgent
     private readonly CodingAgentContext _context;
     private readonly ILogger<CodingAgent> _logger;
     private readonly ResiliencePipeline _retryPipeline;
+    private readonly IAgentInstructions _agentInstructions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CodingAgent"/>
@@ -39,14 +38,16 @@ public class CodingAgent
     /// <param name="kernel">Kernel instance to use</param>
     /// <param name="conversation">Conversation that we're working in</param>
     /// <param name="context">Agent context to provide</param>
+    /// <param name="agentInstructions">Agent instructions reader</param>
     /// <param name="logger">Logger instance for logging retry attempts and errors</param>
-    public CodingAgent(Kernel kernel, Conversation conversation, CodingAgentContext context, ILogger<CodingAgent> logger)
+    public CodingAgent(Kernel kernel, Conversation conversation, CodingAgentContext context, IAgentInstructions agentInstructions, ILogger<CodingAgent> logger)
     {
         _agentKernel = kernel.Clone();
 
         _sharedTools = new SharedTools();
         _conversation = conversation;
         _context = context;
+        _agentInstructions = agentInstructions;
         _logger = logger;
 
         _shellPlugin = new ShellPlugin(context);
@@ -152,9 +153,8 @@ public class CodingAgent
     {
         var iterations = 0;
 
-        // Render the system prompt and add it as the first message in the chat history
-        var systemPrompt = await RenderSystemPrompt(_context);
-        _conversation.ChatHistory.Insert(0, new ChatMessageContent(AuthorRole.System, systemPrompt));
+        // Inject system and custom instructions into the chat history
+        await _agentInstructions.InjectAsync(_conversation.ChatHistory, _context);
 
         while (true)
         {
@@ -192,8 +192,6 @@ public class CodingAgent
                 // Pause the agent for now, we'll resume when we get permission from the user.
                 if (_conversation.PendingFunctionCalls.Any())
                 {
-                    // Remove the system prompt before exiting
-                    RemoveSystemPromptFromHistory();
                     break;
                 }
 
@@ -201,8 +199,6 @@ public class CodingAgent
                 // This is a signal tool to stop the processing.
                 if (_sharedTools.FinalToolOutputReady)
                 {
-                    // Remove the system prompt before exiting
-                    RemoveSystemPromptFromHistory();
                     await callbacks.AgentCompleted();
                     break;
                 }
@@ -212,12 +208,13 @@ public class CodingAgent
             // The user can choose to continue the conversation if needed.
             if (iterations > MaxIterations)
             {
-                // Remove the system prompt before exiting
-                RemoveSystemPromptFromHistory();
                 await callbacks.MaxIterationsReached();
                 break;
             }
         }
+
+        // Remove the system prompt and custom instructions before exiting
+        _agentInstructions.Remove(_conversation.ChatHistory);
     }
 
     private async Task ProcessFunctionCalls(List<FunctionCallContent> functionCalls, ICodingAgentCallbacks callbacks)
@@ -269,41 +266,6 @@ public class CodingAgent
         }
 
         return false;
-    }
-
-    private async Task<string> RenderSystemPrompt(CodingAgentContext context)
-    {
-        var promptTemplateConfig = new PromptTemplateConfig
-        {
-            Template = EmbeddedResource.Read("Agent.Prompts.Instructions.md"),
-            TemplateFormat = "handlebars"
-        };
-
-        var promptTemplateFactory = new HandlebarsPromptTemplateFactory
-        {
-            AllowDangerouslySetContent = true
-        };
-
-        var promptTemplate = promptTemplateFactory.Create(promptTemplateConfig);
-
-        return await promptTemplate.RenderAsync(_agentKernel, new KernelArguments
-        {
-            ["working_directory"] = context.TargetDirectory,
-            ["current_date_time"] = context.CurrentDateTime,
-            ["operating_system"] = context.OperatingSystem
-        });
-    }
-
-    /// <summary>
-    /// Removes the system prompt from the chat history.
-    /// </summary>
-    private void RemoveSystemPromptFromHistory()
-    {
-        if (_conversation.ChatHistory.Count > 0 &&
-            _conversation.ChatHistory[0].Role == AuthorRole.System)
-        {
-            _conversation.ChatHistory.RemoveAt(0);
-        }
     }
 
     /// <summary>
