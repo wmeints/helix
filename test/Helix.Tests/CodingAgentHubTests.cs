@@ -52,6 +52,11 @@ public class CodingAgentHubTests
         };
     }
 
+    private static ILogger<CodingAgent> CreateTestLogger()
+    {
+        return new Mock<ILogger<CodingAgent>>().Object;
+    }
+
     [Fact]
     public async Task SubmitPrompt_ShouldCreateNewConversation_WhenConversationDoesNotExist()
     {
@@ -74,7 +79,7 @@ public class CodingAgentHubTests
             .Setup(r => r.InsertConversationAsync(conversationId))
             .ReturnsAsync(newConversation);
 
-        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), newConversation, CreateTestContext());
+        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), newConversation, CreateTestContext(), CreateTestLogger());
         mockAgent.Setup(a => a.SubmitPromptAsync(userPrompt, _mockCaller.Object))
             .Returns(Task.CompletedTask);
 
@@ -91,7 +96,7 @@ public class CodingAgentHubTests
         _mockFactory.Verify(f => f.Create(It.IsAny<Conversation>()), Times.Once);
         mockAgent.Verify(a => a.SubmitPromptAsync(userPrompt, _mockCaller.Object), Times.Once);
         _mockRepository.Verify(r => r.UpdateConversationAsync(It.IsAny<Conversation>()), Times.Once);
-        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(), Times.Exactly(2));
     }
 
     [Fact]
@@ -112,7 +117,7 @@ public class CodingAgentHubTests
             .Setup(r => r.FindByIdAsync(conversationId))
             .ReturnsAsync(existingConversation);
 
-        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), existingConversation, CreateTestContext());
+        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), existingConversation, CreateTestContext(), CreateTestLogger());
         mockAgent.Setup(a => a.SubmitPromptAsync(userPrompt, _mockCaller.Object))
             .Returns(Task.CompletedTask);
 
@@ -150,7 +155,7 @@ public class CodingAgentHubTests
             .Setup(r => r.FindByIdAsync(conversationId))
             .ReturnsAsync(conversation);
 
-        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext());
+        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext(), CreateTestLogger());
         mockAgent.Setup(a => a.SubmitPromptAsync(userPrompt, _mockCaller.Object))
             .Returns(Task.CompletedTask);
 
@@ -201,7 +206,7 @@ public class CodingAgentHubTests
             .Setup(r => r.FindByIdAsync(conversationId))
             .ReturnsAsync(conversation);
 
-        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext());
+        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext(), CreateTestLogger());
         mockAgent.Setup(a => a.ApproveFunctionCall(toolCallId, _mockCaller.Object))
             .Returns(Task.CompletedTask);
 
@@ -256,7 +261,7 @@ public class CodingAgentHubTests
             .Setup(r => r.FindByIdAsync(conversationId))
             .ReturnsAsync(conversation);
 
-        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext());
+        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext(), CreateTestLogger());
         mockAgent.Setup(a => a.DeclineFunctionCall(toolCallId, _mockCaller.Object))
             .Returns(Task.CompletedTask);
 
@@ -293,7 +298,7 @@ public class CodingAgentHubTests
             .Setup(r => r.FindByIdAsync(conversationId))
             .ReturnsAsync(conversation);
 
-        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext());
+        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext(), CreateTestLogger());
         mockAgent.Setup(a => a.SubmitPromptAsync(userPrompt, _mockCaller.Object))
             .Returns(Task.CompletedTask);
 
@@ -326,7 +331,7 @@ public class CodingAgentHubTests
             .Setup(r => r.FindByIdAsync(conversationId))
             .ReturnsAsync(conversation);
 
-        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext());
+        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext(), CreateTestLogger());
         mockAgent.Setup(a => a.ApproveFunctionCall(toolCallId, _mockCaller.Object))
             .Returns(Task.CompletedTask);
 
@@ -359,7 +364,7 @@ public class CodingAgentHubTests
             .Setup(r => r.FindByIdAsync(conversationId))
             .ReturnsAsync(conversation);
 
-        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext());
+        var mockAgent = new Mock<CodingAgent>(CreateTestKernel(), conversation, CreateTestContext(), CreateTestLogger());
         mockAgent.Setup(a => a.DeclineFunctionCall(toolCallId, _mockCaller.Object))
             .Returns(Task.CompletedTask);
 
