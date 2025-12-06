@@ -25,6 +25,170 @@ PROMPTS_COMMAND = "/prompts"
 _custom_prompts: dict[str, Prompt] = {}
 
 
+def render_special_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel | None:
+    """
+    Render user-friendly messages for specific tool calls.
+
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool being called.
+    tool_args : dict[str, Any]
+        Dictionary of argument names to values.
+
+    Returns
+    -------
+    Panel or None
+        A Rich Panel with friendly messaging, or None if no special handling.
+    """
+    if tool_name == "read_todos":
+        text = Text()
+        text.append("Looking up todo items...", style="cyan")
+        return Panel(
+            text,
+            border_style="cyan",
+            padding=(0, 1),
+        )
+
+    if tool_name == "write_todos":
+        todos = tool_args.get("todos", [])
+
+        # Check if all todos are completed
+        all_completed = (
+            all(todo.get("status") == "completed" for todo in todos) if todos else False
+        )
+
+        if all_completed and todos:
+            text = Text()
+            text.append("Agent has finished all tasks", style="green bold")
+            return Panel(
+                text,
+                border_style="green",
+                padding=(0, 1),
+            )
+
+        # Check if there's a todo marked as in_progress
+        in_progress_todo = None
+        for todo in todos:
+            if todo.get("status") == "in_progress":
+                in_progress_todo = todo
+                break
+
+        if in_progress_todo:
+            text = Text()
+            text.append("Working on: ", style="yellow")
+            text.append(
+                in_progress_todo.get("description", "Unknown task"), style="bold"
+            )
+            return Panel(
+                text,
+                border_style="yellow",
+                padding=(0, 1),
+            )
+
+        # Fallback: show how many todos were updated
+        text = Text()
+        text.append(f"Updated todo list with {len(todos)} item(s)", style="cyan")
+        return Panel(
+            text,
+            border_style="cyan",
+            padding=(0, 1),
+        )
+
+    if tool_name == "read_file":
+        path = tool_args.get("path", "unknown")
+        start_line = tool_args.get("start_line", 1)
+        end_line = tool_args.get("end_line", -1)
+
+        text = Text()
+        text.append("Reading ", style="cyan")
+        text.append(path, style="bold")
+
+        if end_line == -1:
+            if start_line == 1:
+                text.append(" (entire file)", style="dim")
+            else:
+                text.append(f" (from line {start_line} to end)", style="dim")
+        else:
+            line_count = end_line - start_line + 1
+            text.append(f" (lines {start_line}-{end_line}, {line_count} lines)", style="dim")
+
+        return Panel(
+            text,
+            border_style="cyan",
+            padding=(0, 1),
+        )
+
+    if tool_name == "write_file":
+        path = tool_args.get("path", "unknown")
+        content = tool_args.get("content", "")
+        line_count = len(content.split("\n"))
+
+        text = Text()
+        text.append("Writing ", style="green")
+        text.append(f"{line_count} line(s)", style="bold")
+        text.append(" to ", style="green")
+        text.append(path, style="bold")
+
+        return Panel(
+            text,
+            border_style="green",
+            padding=(0, 1),
+        )
+
+    if tool_name == "insert_text":
+        path = tool_args.get("path", "unknown")
+        line_number = tool_args.get("line_number", 0)
+        content = tool_args.get("content", "")
+        line_count = len(content.split("\n"))
+
+        text = Text()
+        text.append("Inserting ", style="yellow")
+        text.append(f"{line_count} line(s)", style="bold")
+        text.append(" at line ", style="yellow")
+        text.append(str(line_number), style="bold")
+        text.append(" in ", style="yellow")
+        text.append(path, style="bold")
+
+        return Panel(
+            text,
+            border_style="yellow",
+            padding=(0, 1),
+        )
+
+    if tool_name == "run_shell_command":
+        command = tool_args.get("command", "unknown")
+
+        text = Text()
+        text.append("Executing: ", style="magenta")
+        text.append(command, style="bold")
+
+        return Panel(
+            text,
+            border_style="magenta",
+            padding=(0, 1),
+        )
+
+    return None
+
+
+def should_suppress_tool_result(tool_name: str) -> bool:
+    """
+    Check if tool result should be suppressed from display.
+
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool.
+
+    Returns
+    -------
+    bool
+        True if the tool result should not be displayed.
+    """
+    return tool_name in ("read_todos", "write_todos", "write_file", "insert_text")
+
+
 def render_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel:
     """
     Render a tool call with its parameters.
@@ -60,9 +224,28 @@ def render_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel:
     )
 
 
+def get_tool_result_max_lines(tool_name: str) -> int:
+    """
+    Get the maximum number of lines to display for a tool result.
+
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool.
+
+    Returns
+    -------
+    int
+        The maximum number of lines to display.
+    """
+    if tool_name == "run_shell_command":
+        return 10
+    return 5
+
+
 def render_tool_result(tool_name: str, content: str) -> Panel:
     """
-    Render the result of a tool execution (first 5 lines).
+    Render the result of a tool execution.
 
     Parameters
     ----------
@@ -76,11 +259,12 @@ def render_tool_result(tool_name: str, content: str) -> Panel:
     Panel
         A Rich Panel displaying the tool result.
     """
+    max_lines = get_tool_result_max_lines(tool_name)
     lines = content.split("\n")
-    truncated_lines = lines[:5]
+    truncated_lines = lines[:max_lines]
     display_content = "\n".join(truncated_lines)
 
-    if len(lines) > 5:
+    if len(lines) > max_lines:
         display_content += "\n..."
 
     return Panel(
@@ -152,22 +336,30 @@ def process_messages(messages: list) -> None:
             continue
 
         if isinstance(message, AIMessage):
-            # Check for tool calls
-            if hasattr(message, "tool_calls") and message.tool_calls:
-                for tool_call in message.tool_calls:
-                    panel = render_tool_call(tool_call["name"], tool_call["args"])
-                    console.print(panel)
-
-            # Display content if present
+            # Display content first if present
             if message.content and str(message.content).strip():
                 panel = render_agent_response(str(message.content))
                 console.print(panel)
 
+            # Then check for tool calls
+            if hasattr(message, "tool_calls") and message.tool_calls:
+                for tool_call in message.tool_calls:
+                    # Check for special tool handling
+                    special_panel = render_special_tool_call(
+                        tool_call["name"], tool_call["args"]
+                    )
+                    if special_panel:
+                        console.print(special_panel)
+                    else:
+                        panel = render_tool_call(tool_call["name"], tool_call["args"])
+                        console.print(panel)
+
         elif isinstance(message, ToolMessage):
-            # Display tool results (first 5 lines)
+            # Display tool results (first 5 lines), unless suppressed
             tool_name = message.name or "tool"
-            panel = render_tool_result(tool_name, str(message.content))
-            console.print(panel)
+            if not should_suppress_tool_result(tool_name):
+                panel = render_tool_result(tool_name, str(message.content))
+                console.print(panel)
 
 
 async def invoke_agent(prompt: str) -> None:
@@ -194,24 +386,32 @@ async def invoke_agent(prompt: str) -> None:
                 for message in new_messages:
                     # Process each new message as it arrives
                     if isinstance(message, AIMessage):
-                        # Check for tool calls
-                        if hasattr(message, "tool_calls") and message.tool_calls:
-                            for tool_call in message.tool_calls:
-                                panel = render_tool_call(
-                                    tool_call["name"], tool_call["args"]
-                                )
-                                console.print(panel)
-
-                        # Display content if present
+                        # Display content first if present
                         if message.content and str(message.content).strip():
                             panel = render_agent_response(str(message.content))
                             console.print(panel)
 
+                        # Then check for tool calls
+                        if hasattr(message, "tool_calls") and message.tool_calls:
+                            for tool_call in message.tool_calls:
+                                # Check for special tool handling
+                                special_panel = render_special_tool_call(
+                                    tool_call["name"], tool_call["args"]
+                                )
+                                if special_panel:
+                                    console.print(special_panel)
+                                else:
+                                    panel = render_tool_call(
+                                        tool_call["name"], tool_call["args"]
+                                    )
+                                    console.print(panel)
+
                     elif isinstance(message, ToolMessage):
-                        # Display tool results (first 5 lines)
+                        # Display tool results (first 5 lines), unless suppressed
                         tool_name = message.name or "tool"
-                        panel = render_tool_result(tool_name, str(message.content))
-                        console.print(panel)
+                        if not should_suppress_tool_result(tool_name):
+                            panel = render_tool_result(tool_name, str(message.content))
+                            console.print(panel)
 
     except Exception as e:
         console.print(
