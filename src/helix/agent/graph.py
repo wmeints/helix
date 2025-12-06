@@ -8,11 +8,12 @@ import chevron
 import tiktoken
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, trim_messages
 from langchain_ollama import ChatOllama
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 
 from helix.agent.state import InputState, State
-from helix.agent.tools import TOOLS
+from helix.agent.tools import TOOLS, clear_todos
 
 # Maximum context window size in tokens (128K)
 MAX_CONTEXT_TOKENS = 128_000
@@ -203,5 +204,23 @@ builder.add_conditional_edges(
 # This creates a cycle: after using tools, we return to the model
 builder.add_edge("call_tool", "call_llm")
 
-# Compile the builder into an executable graph
-graph = builder.compile(name="Agent")
+# Create a memory checkpointer for state persistence
+checkpointer = MemorySaver()
+
+# Compile the builder into an executable graph with checkpointing
+graph = builder.compile(name="Agent", checkpointer=checkpointer)
+
+# Default thread ID for the conversation
+THREAD_ID = "helix-main"
+
+
+def clear_conversation() -> None:
+    """
+    Clear the agent's conversation history and todo list.
+
+    Resets the messages in the graph state to an empty list and
+    clears all todo items from memory.
+    """
+    config = {"configurable": {"thread_id": THREAD_ID}}
+    graph.update_state(config, {"messages": []})
+    clear_todos()

@@ -10,14 +10,15 @@ from rich.panel import Panel
 from rich.prompt import Prompt as RichPrompt
 from rich.text import Text
 
-from helix.agent.graph import graph
+from helix.agent.graph import THREAD_ID, clear_conversation, graph
 from helix.prompts import Prompt, load_prompts
 
 # Global console instance
 console = Console()
 
-# Exit command
+# Built-in commands
 EXIT_COMMAND = "/exit"
+CLEAR_COMMAND = "/clear"
 
 # Loaded custom prompts
 _custom_prompts: dict[str, Prompt] = {}
@@ -156,9 +157,10 @@ async def invoke_agent(prompt: str) -> None:
         The user's prompt to send to the agent.
     """
     messages = [HumanMessage(content=prompt)]
+    config = {"configurable": {"thread_id": THREAD_ID}}
 
     try:
-        async for chunk in graph.astream({"messages": messages}):
+        async for chunk in graph.astream({"messages": messages}, config):
             # Each chunk contains updates from a node
             # The chunk is a dict with node name as key
             for node_name, node_output in chunk.items():
@@ -257,6 +259,8 @@ def print_welcome_banner() -> None:
     banner.append("A coding agent powered by local LLMs", style="dim")
     banner.append("\n\n", style="")
     banner.append("Type ", style="dim")
+    banner.append("/clear", style="bold")
+    banner.append(" to reset, ", style="dim")
     banner.append("/exit", style="bold")
     banner.append(" to quit.", style="dim")
 
@@ -292,6 +296,12 @@ async def run_interaction_loop() -> None:
 
         if not user_prompt:
             console.print("[dim]Please enter a prompt.[/dim]")
+            continue
+
+        # Check for /clear command
+        if user_prompt.strip().lower() == CLEAR_COMMAND:
+            clear_conversation()
+            console.print("[dim]Conversation cleared.[/dim]")
             continue
 
         # Check if this is a custom prompt command
