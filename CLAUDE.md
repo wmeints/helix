@@ -1,46 +1,72 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
 
 ## Project Overview
 
-Helix is a coding agent built with Python using LangGraph and LangChain. It uses a local Ollama model (qwen3-coder) for LLM inference.
+Helix is a coding agent built with Python using LangGraph and LangChain. It uses
+a local Ollama model (qwen3-coder) for LLM inference.
 
 ## Commands
 
 **Install dependencies:**
+
 ```bash
 uv sync
 ```
 
 **Run the CLI:**
+
 ```bash
 uv run helix
 ```
 
 **Run all tests:**
+
 ```bash
 uv run pytest
 ```
 
 **Run a single test:**
+
 ```bash
 uv run pytest tests/test_agent.py::test_agent_writes_haiku_about_ai -v
 ```
+
+**Check code quality with ruff:**
+
+```bash
+uv run ruff check
+```
+
+**Fix ruff issues automatically:**
+
+```bash
+uv run ruff check --fix
+```
+
+After making changes to the code, always run `uv run ruff check` to verify code
+quality and fix any issues before committing.
 
 ## Architecture
 
 The agent is built as a LangGraph state machine with a cyclic graph pattern:
 
-```
+```text
 __start__ -> call_llm -> [should_call_tools] -> call_tool -> call_llm (loop)
                                              -> __end__
 ```
 
 Key components in `src/helix/agent/`:
-- **graph.py**: Defines the LangGraph `StateGraph` with two nodes (`call_llm`, `call_tool`) and a conditional edge that routes based on whether tool calls are present
-- **state.py**: Defines `InputState` and `State` dataclasses using LangGraph's `add_messages` annotation for message accumulation
-- **tools.py**: Contains tool definitions using `@tool` decorator; tools are exported via `TOOLS` list
+
+- **graph.py**: Defines the LangGraph `StateGraph` with two nodes (`call_llm`,
+  `call_tool`) and a conditional edge that routes based on whether tool calls
+  are present
+- **state.py**: Defines `InputState` and `State` dataclasses using LangGraph's
+  `add_messages` annotation for message accumulation
+- **tools.py**: Contains tool definitions using `@tool` decorator; tools are
+  exported via `TOOLS` list
 
 The CLI entry point (`work` command) is defined in `src/helix/cli.py`.
 

@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import pytest
 
 from helix.prompts import Prompt, load_prompt, load_prompts, _validate_prompt_name
 

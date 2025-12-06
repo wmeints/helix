@@ -1,7 +1,5 @@
 """Test the agent's happy flow."""
 
-import os
-from pathlib import Path
 
 import pytest
 from langchain_core.messages import HumanMessage

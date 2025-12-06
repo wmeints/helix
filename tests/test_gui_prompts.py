@@ -1,6 +1,5 @@
 """Tests for the GUI prompt command parsing."""
 
-import pytest
 
 from helix.gui import parse_prompt_command
 
