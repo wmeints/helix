@@ -8,10 +8,12 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "chevron>=0.14.0",
     "click>=8.1.0",
     "langchain-core>=1.1.1",
     "langchain-ollama>=1.0.0",
     "langgraph>=1.0.4",
+    "python-frontmatter>=1.1.0",
     "rich>=14.2.0",
     "tiktoken>=0.7.0",
 ]

@@ -7,16 +7,20 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.prompt import Prompt
+from rich.prompt import Prompt as RichPrompt
 from rich.text import Text
 
 from helix.agent.graph import graph
+from helix.prompts import Prompt, load_prompts
 
 # Global console instance
 console = Console()
 
 # Exit command
 EXIT_COMMAND = "/exit"
+
+# Loaded custom prompts
+_custom_prompts: dict[str, Prompt] = {}
 
 
 def render_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel:
@@ -180,7 +184,7 @@ def get_user_prompt() -> str | None:
     console.print()
 
     try:
-        user_input = Prompt.ask("[bold green]>[/bold green]", console=console)
+        user_input = RichPrompt.ask("[bold green]>[/bold green]", console=console)
     except (KeyboardInterrupt, EOFError):
         return None
 
@@ -188,6 +192,30 @@ def get_user_prompt() -> str | None:
         return None
 
     return user_input.strip()
+
+
+def parse_prompt_command(user_input: str) -> tuple[str, str] | None:
+    """Parse a prompt command from user input.
+
+    Args:
+        user_input: The user's input string.
+
+    Returns:
+        A tuple of (prompt_name, args) if the input is a valid prompt command,
+        None otherwise.
+    """
+    if not user_input.startswith("/"):
+        return None
+
+    parts = user_input[1:].split(maxsplit=1)
+
+    if not parts:
+        return None
+
+    prompt_name = parts[0]
+    args = parts[1] if len(parts) > 1 else ""
+
+    return (prompt_name, args)
 
 
 def print_welcome_banner() -> None:
@@ -201,11 +229,27 @@ def print_welcome_banner() -> None:
     banner.append("/exit", style="bold")
     banner.append(" to quit.", style="dim")
 
+    if _custom_prompts:
+        banner.append("\n\n", style="")
+        banner.append("Available prompts:", style="dim")
+
+        for name, prompt in _custom_prompts.items():
+            banner.append("\n  ", style="")
+            banner.append(f"/{name}", style="bold magenta")
+
+            if prompt.description:
+                banner.append(f" - {prompt.description}", style="dim")
+
     console.print(Panel(banner, border_style="cyan", padding=(1, 2)))
 
 
 async def run_interaction_loop() -> None:
     """Run the main interaction loop."""
+    global _custom_prompts
+
+    # Load custom prompts at startup
+    _custom_prompts = load_prompts()
+
     print_welcome_banner()
 
     while True:
@@ -218,6 +262,21 @@ async def run_interaction_loop() -> None:
         if not user_prompt:
             console.print("[dim]Please enter a prompt.[/dim]")
             continue
+
+        # Check if this is a custom prompt command
+        parsed = parse_prompt_command(user_prompt)
+
+        if parsed is not None:
+            prompt_name, args = parsed
+
+            if prompt_name in _custom_prompts:
+                custom_prompt = _custom_prompts[prompt_name]
+                rendered_prompt = custom_prompt.render(args)
+                await invoke_agent(rendered_prompt)
+                continue
+            elif prompt_name != "exit":
+                console.print(f"[yellow]Unknown prompt: /{prompt_name}[/yellow]")
+                continue
 
         await invoke_agent(user_prompt)
 
