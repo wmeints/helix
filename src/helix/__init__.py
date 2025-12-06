@@ -2,5 +2,6 @@
 
 from helix import agent
 from helix import cli
+from helix import gui
 
-__all__ = ["agent", "cli"]
+__all__ = ["agent", "cli", "gui"]
