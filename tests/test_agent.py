@@ -1,9 +1,12 @@
 """Test the agent's happy flow."""
 
+import os
+from pathlib import Path
+
 import pytest
 from langchain_core.messages import HumanMessage
 
-from helix.agent.graph import graph
+from helix.agent.graph import _load_custom_instructions, graph
 
 
 @pytest.mark.asyncio
@@ -31,4 +34,21 @@ async def test_agent_writes_haiku_about_ai():
     # We don't enforce strict haiku format, just that it responds
     assert isinstance(last_message.content, str)
     assert len(last_message.content.strip()) > 0
+
+
+def test_load_custom_instructions_returns_none_when_file_missing(tmp_path, monkeypatch):
+    """Test that _load_custom_instructions returns None when AGENTS.md doesn't exist."""
+    monkeypatch.chdir(tmp_path)
+    result = _load_custom_instructions()
+    assert result is None
+
+
+def test_load_custom_instructions_returns_content_when_file_exists(tmp_path, monkeypatch):
+    """Test that _load_custom_instructions returns file contents when AGENTS.md exists."""
+    agents_md = tmp_path / "AGENTS.md"
+    agents_md.write_text("Custom instructions for the agent")
+    monkeypatch.chdir(tmp_path)
+
+    result = _load_custom_instructions()
+    assert result == "Custom instructions for the agent"
 

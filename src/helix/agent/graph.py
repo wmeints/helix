@@ -16,6 +16,20 @@ _SYSTEM_INSTRUCTIONS_PATH = Path(__file__).parent / "system_instructions.md"
 _SYSTEM_INSTRUCTIONS = _SYSTEM_INSTRUCTIONS_PATH.read_text()
 
 
+def _load_custom_instructions() -> str | None:
+    """Load custom instructions from AGENTS.md if it exists.
+
+    Returns:
+        The contents of AGENTS.md if it exists, None otherwise.
+    """
+    agents_md_path = Path.cwd() / "AGENTS.md"
+
+    if agents_md_path.exists():
+        return agents_md_path.read_text()
+
+    return None
+
+
 async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     """Call the LLM to generate a response.
 
@@ -30,8 +44,16 @@ async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     # Initialize the model with tool binding
     model = ChatOllama(model="qwen3-coder").bind_tools(TOOLS)
 
-    # Prepend system instructions to the messages
-    messages = [SystemMessage(content=_SYSTEM_INSTRUCTIONS), *state.messages]
+    # Build the messages list with system instructions
+    system_messages = [SystemMessage(content=_SYSTEM_INSTRUCTIONS)]
+
+    # Add custom instructions if AGENTS.md exists
+    custom_instructions = _load_custom_instructions()
+
+    if custom_instructions:
+        system_messages.append(SystemMessage(content=custom_instructions))
+
+    messages = [*system_messages, *state.messages]
 
     # Get the model's response
     response = cast(
@@ -70,6 +92,7 @@ def should_call_tools(state: State) -> Literal["__end__", "call_tool"]:
         return "__end__"
 
     last_message = state.messages[-1]
+
     if not isinstance(last_message, AIMessage):
         return "__end__"
 
