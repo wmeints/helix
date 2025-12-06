@@ -3,7 +3,7 @@
 import tempfile
 from pathlib import Path
 
-from helix.agent.tools import read_file, run_shell_command
+from helix.agent.tools import read_file, run_shell_command, write_file
 
 
 def test_run_shell_command_executes_echo():
@@ -76,3 +76,40 @@ def test_read_file_returns_error_for_invalid_start_line():
         assert "Error: start_line must be >= 1" in result
     finally:
         Path(temp_path).unlink()
+
+
+def test_write_file_creates_new_file():
+    """Test that write_file creates a new file with the given content."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir) / "new_file.txt"
+        content = "Hello, World!"
+
+        result = write_file.invoke({"path": str(temp_path), "content": content})
+
+        assert "Successfully wrote to" in result
+        assert temp_path.read_text() == content
+
+
+def test_write_file_overwrites_existing_file():
+    """Test that write_file overwrites an existing file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("original content")
+        temp_path = f.name
+
+    try:
+        new_content = "new content"
+        result = write_file.invoke({"path": temp_path, "content": new_content})
+
+        assert "Successfully wrote to" in result
+        assert Path(temp_path).read_text() == new_content
+    finally:
+        Path(temp_path).unlink()
+
+
+def test_write_file_returns_error_for_missing_directory():
+    """Test that write_file returns an error when the directory doesn't exist."""
+    result = write_file.invoke({
+        "path": "/nonexistent/directory/file.txt",
+        "content": "test"
+    })
+    assert "Error: Directory does not exist" in result

@@ -2,6 +2,7 @@
 
 import platform
 import subprocess
+from pathlib import Path
 
 from langchain_core.tools import tool
 
@@ -54,6 +55,35 @@ def read_file(path: str, start_line: int = 1, end_line: int = -1) -> str:
 
 
 @tool
+def write_file(path: str, content: str) -> str:
+    """Write content to a file.
+
+    Creates the file if it doesn't exist, or overwrites it if it does.
+
+    Args:
+        path: The path to the file to write.
+        content: The content to write to the file.
+
+    Returns:
+        A success message, or an error message if the operation failed.
+    """
+    file_path = Path(path)
+    parent_dir = file_path.parent
+
+    if not parent_dir.exists():
+        return f"Error: Directory does not exist: {parent_dir}"
+
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return f"Successfully wrote to {path}"
+    except PermissionError:
+        return f"Error: Permission denied: {path}"
+    except Exception as e:
+        return f"Error writing file: {str(e)}"
+
+
+@tool
 def run_shell_command(command: str) -> str:
     """Execute a shell command and return the output.
 
@@ -96,4 +126,4 @@ def run_shell_command(command: str) -> str:
 
 
 # List of all available tools
-TOOLS = [read_file, run_shell_command]
+TOOLS = [read_file, write_file, run_shell_command]
