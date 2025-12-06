@@ -1,14 +1,19 @@
 """Define a LangGraph stateful graph with call_llm and call_tool nodes."""
 
+from pathlib import Path
 from typing import Dict, List, Literal, cast
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 
 from helix.agent.state import InputState, State
 from helix.agent.tools import TOOLS
+
+# Load system instructions from markdown file
+_SYSTEM_INSTRUCTIONS_PATH = Path(__file__).parent / "system_instructions.md"
+_SYSTEM_INSTRUCTIONS = _SYSTEM_INSTRUCTIONS_PATH.read_text()
 
 
 async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
@@ -25,10 +30,13 @@ async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     # Initialize the model with tool binding
     model = ChatOllama(model="qwen3-coder").bind_tools(TOOLS)
 
+    # Prepend system instructions to the messages
+    messages = [SystemMessage(content=_SYSTEM_INSTRUCTIONS), *state.messages]
+
     # Get the model's response
     response = cast(
         AIMessage,
-        await model.ainvoke(state.messages),
+        await model.ainvoke(messages),
     )
 
     # Return the model's response as a list to be added to existing messages
