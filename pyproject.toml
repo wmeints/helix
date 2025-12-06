@@ -1,0 +1,28 @@
+[project]
+name = "helix"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Willem Meints", email = "1550763+wmeints@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "langchain-core>=1.1.1",
+    "langchain-ollama>=1.0.0",
+    "langgraph>=1.0.4",
+    "rich>=14.2.0",
+]
+
+[project.scripts]
+helix = "helix.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+    "pytest-asyncio>=1.3.0",
+]
