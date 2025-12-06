@@ -1,10 +1,41 @@
 """Define tools for the agent to use."""
 
+import json
 import platform
 import subprocess
+from enum import Enum
 from pathlib import Path
+from typing import TypedDict
 
 from langchain_core.tools import tool
+
+
+class TodoStatus(str, Enum):
+    """Status options for a todo item."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+
+class TodoItem(TypedDict):
+    """
+    A todo item with description and status.
+
+    Attributes
+    ----------
+    description : str
+        The description of the todo item.
+    status : str
+        The status of the todo item (pending, in_progress, completed).
+    """
+
+    description: str
+    status: str
+
+
+# In-memory storage for todo items
+_todos: list[TodoItem] = []
 
 
 @tool
@@ -198,5 +229,71 @@ def run_shell_command(command: str) -> str:
         return f"Error executing command: {str(e)}"
 
 
+@tool
+def write_todos(todos: list[TodoItem]) -> str:
+    """
+    Write todo items to the agent's in-memory todo list.
+
+    This replaces the current todo list with the provided items.
+
+    Parameters
+    ----------
+    todos : list[TodoItem]
+        A list of todo items. Each item must have:
+        - description: str - The description of the todo item.
+        - status: str - The status (pending, in_progress, completed).
+
+    Returns
+    -------
+    str
+        A success message confirming the todos were updated.
+    """
+    global _todos
+
+    valid_statuses = {s.value for s in TodoStatus}
+
+    for todo in todos:
+        if todo["status"] not in valid_statuses:
+            return (
+                f"Error: Invalid status '{todo['status']}'. "
+                f"Must be one of: {', '.join(valid_statuses)}."
+            )
+
+    _todos = list(todos)
+    return f"Successfully updated todo list with {len(_todos)} item(s)."
+
+
+@tool
+def read_todos() -> str:
+    """
+    Read the current list of todo items.
+
+    Returns
+    -------
+    str
+        A JSON string containing the list of todo items.
+        Each item has 'description' and 'status' fields.
+    """
+    return json.dumps(_todos, indent=2)
+
+
+def get_todos() -> list[TodoItem]:
+    """
+    Get the current list of todo items.
+
+    Returns
+    -------
+    list[TodoItem]
+        The current list of todo items.
+    """
+    return _todos.copy()
+
+
+def clear_todos() -> None:
+    """Clear all todo items from memory."""
+    global _todos
+    _todos = []
+
+
 # List of all available tools
-TOOLS = [read_file, write_file, insert_text, run_shell_command]
+TOOLS = [read_file, write_file, insert_text, run_shell_command, write_todos, read_todos]

@@ -1,9 +1,22 @@
 """Test the agent tools."""
 
+import json
 import tempfile
 from pathlib import Path
 
-from helix.agent.tools import insert_text, read_file, run_shell_command, write_file
+import pytest
+from pydantic import ValidationError
+
+from helix.agent.tools import (
+    clear_todos,
+    get_todos,
+    insert_text,
+    read_file,
+    read_todos,
+    run_shell_command,
+    write_file,
+    write_todos,
+)
 
 
 def test_run_shell_command_executes_echo():
@@ -228,3 +241,152 @@ def test_insert_text_returns_error_for_line_number_exceeding_file():
         assert "exceeds file length" in result
     finally:
         Path(temp_path).unlink()
+
+
+def test_write_todos_updates_todo_list():
+    """Test that write_todos successfully updates the todo list."""
+    clear_todos()
+
+    todos = [
+        {"description": "First task", "status": "pending"},
+        {"description": "Second task", "status": "in_progress"},
+        {"description": "Third task", "status": "completed"},
+    ]
+
+    result = write_todos.invoke({"todos": todos})
+
+    assert "Successfully updated todo list with 3 item(s)" in result
+
+    stored_todos = get_todos()
+    assert len(stored_todos) == 3
+    assert stored_todos[0]["description"] == "First task"
+    assert stored_todos[0]["status"] == "pending"
+    assert stored_todos[1]["status"] == "in_progress"
+    assert stored_todos[2]["status"] == "completed"
+
+    clear_todos()
+
+
+def test_write_todos_replaces_existing_todos():
+    """Test that write_todos replaces the existing todo list."""
+    clear_todos()
+
+    write_todos.invoke({"todos": [{"description": "Old task", "status": "pending"}]})
+    write_todos.invoke({"todos": [{"description": "New task", "status": "completed"}]})
+
+    stored_todos = get_todos()
+    assert len(stored_todos) == 1
+    assert stored_todos[0]["description"] == "New task"
+
+    clear_todos()
+
+
+def test_write_todos_raises_error_for_missing_description():
+    """Test that write_todos raises a ValidationError when description is missing."""
+    clear_todos()
+
+    with pytest.raises(ValidationError):
+        write_todos.invoke({"todos": [{"status": "pending"}]})
+
+    clear_todos()
+
+
+def test_write_todos_raises_error_for_missing_status():
+    """Test that write_todos raises a ValidationError when status is missing."""
+    clear_todos()
+
+    with pytest.raises(ValidationError):
+        write_todos.invoke({"todos": [{"description": "Task without status"}]})
+
+    clear_todos()
+
+
+def test_write_todos_returns_error_for_invalid_status():
+    """Test that write_todos returns an error for invalid status values."""
+    clear_todos()
+
+    result = write_todos.invoke({
+        "todos": [{"description": "Task", "status": "invalid_status"}]
+    })
+
+    assert "Error: Invalid status" in result
+    assert "invalid_status" in result
+
+    clear_todos()
+
+
+def test_write_todos_accepts_empty_list():
+    """Test that write_todos accepts an empty list to clear todos."""
+    clear_todos()
+
+    write_todos.invoke({"todos": [{"description": "Task", "status": "pending"}]})
+    result = write_todos.invoke({"todos": []})
+
+    assert "Successfully updated todo list with 0 item(s)" in result
+    assert len(get_todos()) == 0
+
+    clear_todos()
+
+
+def test_get_todos_returns_copy():
+    """Test that get_todos returns a copy of the todo list."""
+    clear_todos()
+
+    write_todos.invoke({"todos": [{"description": "Task", "status": "pending"}]})
+
+    todos = get_todos()
+    todos.append({"description": "Extra task", "status": "pending"})
+
+    assert len(get_todos()) == 1
+
+    clear_todos()
+
+
+def test_clear_todos_removes_all_items():
+    """Test that clear_todos removes all items from the list."""
+    write_todos.invoke({
+        "todos": [
+            {"description": "Task 1", "status": "pending"},
+            {"description": "Task 2", "status": "completed"},
+        ]
+    })
+
+    clear_todos()
+
+    assert len(get_todos()) == 0
+
+
+def test_read_todos_returns_json_string():
+    """Test that read_todos returns a valid JSON string."""
+    clear_todos()
+
+    write_todos.invoke({
+        "todos": [
+            {"description": "Task 1", "status": "pending"},
+            {"description": "Task 2", "status": "in_progress"},
+        ]
+    })
+
+    result = read_todos.invoke({})
+    parsed = json.loads(result)
+
+    assert isinstance(parsed, list)
+    assert len(parsed) == 2
+    assert parsed[0]["description"] == "Task 1"
+    assert parsed[0]["status"] == "pending"
+    assert parsed[1]["description"] == "Task 2"
+    assert parsed[1]["status"] == "in_progress"
+
+    clear_todos()
+
+
+def test_read_todos_returns_empty_list_when_no_todos():
+    """Test that read_todos returns an empty JSON array when no todos exist."""
+    clear_todos()
+
+    result = read_todos.invoke({})
+    parsed = json.loads(result)
+
+    assert parsed == []
+
+    clear_todos()
