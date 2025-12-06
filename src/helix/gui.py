@@ -19,6 +19,7 @@ console = Console()
 # Built-in commands
 EXIT_COMMAND = "/exit"
 CLEAR_COMMAND = "/clear"
+PROMPTS_COMMAND = "/prompts"
 
 # Loaded custom prompts
 _custom_prompts: dict[str, Prompt] = {}
@@ -112,6 +113,28 @@ def render_agent_response(content: str) -> Panel:
         border_style="cyan",
         padding=(1, 2),
     )
+
+
+def print_prompts_list() -> None:
+    """Print the list of available prompts."""
+    if not _custom_prompts:
+        console.print("[dim]No prompts available.[/dim]")
+        console.print(
+            "[dim]Add prompts to .helix/prompts/ as .prompt.md files.[/dim]"
+        )
+        return
+
+    text = Text()
+    text.append("Available prompts:\n", style="bold")
+
+    for name, prompt in _custom_prompts.items():
+        text.append("\n  ")
+        text.append(f"/{name}", style="bold magenta")
+
+        if prompt.description:
+            text.append(f" - {prompt.description}", style="dim")
+
+    console.print(Panel(text, border_style="cyan", padding=(1, 2)))
 
 
 def process_messages(messages: list) -> None:
@@ -261,6 +284,8 @@ def print_welcome_banner() -> None:
     banner.append("Type ", style="dim")
     banner.append("/clear", style="bold")
     banner.append(" to reset, ", style="dim")
+    banner.append("/prompts", style="bold")
+    banner.append(" to list prompts, ", style="dim")
     banner.append("/exit", style="bold")
     banner.append(" to quit.", style="dim")
 
@@ -302,6 +327,11 @@ async def run_interaction_loop() -> None:
         if user_prompt.strip().lower() == CLEAR_COMMAND:
             clear_conversation()
             console.print("[dim]Conversation cleared.[/dim]")
+            continue
+
+        # Check for /prompts command
+        if user_prompt.strip().lower() == PROMPTS_COMMAND:
+            print_prompts_list()
             continue
 
         # Check if this is a custom prompt command
