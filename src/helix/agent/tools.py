@@ -84,6 +84,54 @@ def write_file(path: str, content: str) -> str:
 
 
 @tool
+def insert_text(path: str, content: str, line_number: int) -> str:
+    """Insert text at a specific line in a file.
+
+    Args:
+        path: The path to the file to modify.
+        content: The content to insert.
+        line_number: The 1-indexed line number to insert the content at.
+                     Use 1 to insert at the start of the file.
+                     Use a value equal to the number of lines + 1 to append at the end.
+
+    Returns:
+        A success message, or an error message if the operation failed.
+    """
+    file_path = Path(path)
+
+    if not file_path.exists():
+        return f"Error: File not found: {path}"
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        if line_number < 1:
+            return "Error: line_number must be >= 1."
+
+        # Allow inserting at line_number == len(lines) + 1 (append to end)
+        if line_number > len(lines) + 1:
+            return f"Error: line_number {line_number} exceeds file length + 1 ({len(lines) + 1})."
+
+        # Ensure content ends with newline for proper insertion
+        if content and not content.endswith("\n"):
+            content += "\n"
+
+        # Insert at the specified position (0-indexed)
+        insert_idx = line_number - 1
+        lines.insert(insert_idx, content)
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
+        return f"Successfully inserted text at line {line_number} in {path}"
+    except PermissionError:
+        return f"Error: Permission denied: {path}"
+    except Exception as e:
+        return f"Error inserting text: {str(e)}"
+
+
+@tool
 def run_shell_command(command: str) -> str:
     """Execute a shell command and return the output.
 
@@ -126,4 +174,4 @@ def run_shell_command(command: str) -> str:
 
 
 # List of all available tools
-TOOLS = [read_file, write_file, run_shell_command]
+TOOLS = [read_file, write_file, insert_text, run_shell_command]

@@ -3,7 +3,7 @@
 import tempfile
 from pathlib import Path
 
-from helix.agent.tools import read_file, run_shell_command, write_file
+from helix.agent.tools import insert_text, read_file, run_shell_command, write_file
 
 
 def test_run_shell_command_executes_echo():
@@ -113,3 +113,118 @@ def test_write_file_returns_error_for_missing_directory():
         "content": "test"
     })
     assert "Error: Directory does not exist" in result
+
+
+def test_insert_text_at_start_of_file():
+    """Test that insert_text inserts content at the start of a file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("line 1\nline 2\n")
+        temp_path = f.name
+
+    try:
+        result = insert_text.invoke({
+            "path": temp_path,
+            "content": "new first line",
+            "line_number": 1
+        })
+
+        assert "Successfully inserted" in result
+        content = Path(temp_path).read_text()
+        lines = content.splitlines()
+        assert lines[0] == "new first line"
+        assert lines[1] == "line 1"
+        assert lines[2] == "line 2"
+    finally:
+        Path(temp_path).unlink()
+
+
+def test_insert_text_in_middle_of_file():
+    """Test that insert_text inserts content in the middle of a file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("line 1\nline 2\nline 3\n")
+        temp_path = f.name
+
+    try:
+        result = insert_text.invoke({
+            "path": temp_path,
+            "content": "inserted line",
+            "line_number": 2
+        })
+
+        assert "Successfully inserted" in result
+        content = Path(temp_path).read_text()
+        lines = content.splitlines()
+        assert lines[0] == "line 1"
+        assert lines[1] == "inserted line"
+        assert lines[2] == "line 2"
+        assert lines[3] == "line 3"
+    finally:
+        Path(temp_path).unlink()
+
+
+def test_insert_text_at_end_of_file():
+    """Test that insert_text appends content at the end of a file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("line 1\nline 2\n")
+        temp_path = f.name
+
+    try:
+        result = insert_text.invoke({
+            "path": temp_path,
+            "content": "new last line",
+            "line_number": 3
+        })
+
+        assert "Successfully inserted" in result
+        content = Path(temp_path).read_text()
+        lines = content.splitlines()
+        assert lines[0] == "line 1"
+        assert lines[1] == "line 2"
+        assert lines[2] == "new last line"
+    finally:
+        Path(temp_path).unlink()
+
+
+def test_insert_text_returns_error_for_missing_file():
+    """Test that insert_text returns an error when the file doesn't exist."""
+    result = insert_text.invoke({
+        "path": "/nonexistent/file.txt",
+        "content": "test",
+        "line_number": 1
+    })
+    assert "Error: File not found" in result
+
+
+def test_insert_text_returns_error_for_invalid_line_number():
+    """Test that insert_text returns an error for line_number < 1."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("line 1\n")
+        temp_path = f.name
+
+    try:
+        result = insert_text.invoke({
+            "path": temp_path,
+            "content": "test",
+            "line_number": 0
+        })
+        assert "Error: line_number must be >= 1" in result
+    finally:
+        Path(temp_path).unlink()
+
+
+def test_insert_text_returns_error_for_line_number_exceeding_file():
+    """Test that insert_text returns an error when line_number exceeds file length + 1."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("line 1\nline 2\n")
+        temp_path = f.name
+
+    try:
+        result = insert_text.invoke({
+            "path": temp_path,
+            "content": "test",
+            "line_number": 10
+        })
+        assert "Error: line_number" in result
+        assert "exceeds file length" in result
+    finally:
+        Path(temp_path).unlink()
