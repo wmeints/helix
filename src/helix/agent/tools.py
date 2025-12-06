@@ -7,6 +7,53 @@ from langchain_core.tools import tool
 
 
 @tool
+def read_file(path: str, start_line: int = 1, end_line: int = -1) -> str:
+    """Read content from a file.
+
+    Args:
+        path: The path to the file to read.
+        start_line: The 1-indexed line number to start reading from (default: 1).
+        end_line: The 1-indexed line number to stop reading at (inclusive).
+                  Use -1 to read until the end of the file (default: -1).
+
+    Returns:
+        The file content with line numbers, or an error message.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        if start_line < 1:
+            return "Error: start_line must be >= 1."
+
+        start_idx = start_line - 1
+
+        if start_idx >= len(lines):
+            return f"Error: start_line {start_line} exceeds file length ({len(lines)} lines)."
+
+        if end_line == -1:
+            end_idx = len(lines)
+        else:
+            if end_line < start_line:
+                return "Error: end_line must be >= start_line."
+            end_idx = min(end_line, len(lines))
+
+        selected_lines = lines[start_idx:end_idx]
+
+        result = []
+        for i, line in enumerate(selected_lines, start=start_line):
+            result.append(f"{i}: {line.rstrip()}")
+
+        return "\n".join(result)
+    except FileNotFoundError:
+        return f"Error: File not found: {path}"
+    except PermissionError:
+        return f"Error: Permission denied: {path}"
+    except Exception as e:
+        return f"Error reading file: {str(e)}"
+
+
+@tool
 def run_shell_command(command: str) -> str:
     """Execute a shell command and return the output.
 
@@ -49,4 +96,4 @@ def run_shell_command(command: str) -> str:
 
 
 # List of all available tools
-TOOLS = [run_shell_command]
+TOOLS = [read_file, run_shell_command]
