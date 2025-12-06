@@ -1,39 +1,52 @@
 """Define tools for the agent to use."""
 
+import platform
+import subprocess
+
 from langchain_core.tools import tool
 
 
 @tool
-def get_weather(location: str) -> str:
-    """Get the current weather for a given location.
-    
-    Args:
-        location: The city or location to get weather for.
-        
-    Returns:
-        A string describing the weather conditions.
-    """
-    # This is a placeholder implementation
-    return f"The weather in {location} is sunny and 72°F."
+def run_shell_command(command: str) -> str:
+    """Execute a shell command and return the output.
 
+    Uses cmd.exe on Windows and bash on other operating systems.
 
-@tool
-def calculate(expression: str) -> str:
-    """Evaluate a mathematical expression.
-    
     Args:
-        expression: A mathematical expression to evaluate (e.g., "2 + 2").
-        
+        command: The shell command to execute.
+
     Returns:
-        The result of the calculation as a string.
+        The stdout and stderr output from the command, or an error message.
     """
     try:
-        result = eval(expression)
-        return f"The result of {expression} is {result}."
+        if platform.system() == "Windows":
+            result = subprocess.run(
+                ["cmd.exe", "/c", command],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        else:
+            result = subprocess.run(
+                ["bash", "-c", command],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+
+        output = result.stdout
+        if result.stderr:
+            output += f"\n{result.stderr}" if output else result.stderr
+
+        if not output.strip():
+            return f"Command executed successfully (exit code {result.returncode})."
+
+        return output.strip()
+    except subprocess.TimeoutExpired:
+        return "Error: Command timed out after 60 seconds."
     except Exception as e:
-        return f"Error calculating {expression}: {str(e)}"
+        return f"Error executing command: {str(e)}"
 
 
 # List of all available tools
-TOOLS = [get_weather, calculate]
-
+TOOLS = [run_shell_command]
