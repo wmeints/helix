@@ -92,7 +92,8 @@ def load_prompt(file_path: Path) -> Prompt | None:
     if not _validate_prompt_name(str(name)):
         return None
 
-    description = str(post.metadata.get("description"))
+    raw_description = post.metadata.get("description")
+    description = str(raw_description) if raw_description is not None else None
     content = post.content
 
     return Prompt(name=str(name), description=description, content=content)
