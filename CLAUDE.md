@@ -51,3 +51,37 @@ The CLI entry point (`work` command) is defined in `src/helix/cli.py`.
 - `langgraph` for state machine orchestration
 - `rich` for terminal output
 - Tests use `pytest` with `pytest-asyncio` for async test support
+
+## Code Style
+
+### Docstrings
+
+All docstrings must use **NumPy style**. Example:
+
+```python
+def example_function(param1: str, param2: int = 10) -> bool:
+    """
+    Short summary of the function.
+
+    Extended description if needed.
+
+    Parameters
+    ----------
+    param1 : str
+        Description of param1.
+    param2 : int, optional
+        Description of param2 (default: 10).
+
+    Returns
+    -------
+    bool
+        Description of return value.
+
+    Raises
+    ------
+    ValueError
+        When param1 is empty.
+    """
+```
+
+For classes, use the `Attributes` section to document instance attributes.

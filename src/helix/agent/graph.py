@@ -21,9 +21,12 @@ _SYSTEM_INSTRUCTIONS = _SYSTEM_INSTRUCTIONS_PATH.read_text()
 
 
 def _load_custom_instructions() -> str | None:
-    """Load custom instructions from AGENTS.md if it exists.
+    """
+    Load custom instructions from AGENTS.md if it exists.
 
-    Returns:
+    Returns
+    -------
+    str or None
         The contents of AGENTS.md if it exists, None otherwise.
     """
     agents_md_path = Path.cwd() / "AGENTS.md"
@@ -35,16 +38,21 @@ def _load_custom_instructions() -> str | None:
 
 
 def _count_tokens(messages: list[BaseMessage]) -> int:
-    """Count the number of tokens in a list of messages.
+    """
+    Count the number of tokens in a list of messages.
 
     Uses tiktoken with cl100k_base encoding for token counting.
     This is an approximation for non-OpenAI models but provides
     a reasonable estimate for context window management.
 
-    Args:
-        messages: List of messages to count tokens for.
+    Parameters
+    ----------
+    messages : list[BaseMessage]
+        List of messages to count tokens for.
 
-    Returns:
+    Returns
+    -------
+    int
         The total number of tokens across all messages.
     """
     encoding = tiktoken.get_encoding("cl100k_base")
@@ -65,15 +73,20 @@ def _count_tokens(messages: list[BaseMessage]) -> int:
 
 
 async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
-    """Call the LLM to generate a response.
+    """
+    Call the LLM to generate a response.
 
     This function prepares the model with tool binding and processes the response.
     Messages are trimmed to fit within the 128K token context window.
 
-    Args:
-        state: The current state of the conversation.
+    Parameters
+    ----------
+    state : State
+        The current state of the conversation.
 
-    Returns:
+    Returns
+    -------
+    Dict[str, List[AIMessage]]
         A dictionary containing the model's response message.
     """
     # Initialize the model with tool binding
@@ -124,14 +137,19 @@ builder.add_edge("__start__", "call_llm")
 
 
 def should_call_tools(state: State) -> Literal["__end__", "call_tool"]:
-    """Determine the next node based on whether the last message has tool calls.
+    """
+    Determine the next node based on whether the last message has tool calls.
 
     This function checks if the model's last message contains tool calls.
 
-    Args:
-        state: The current state of the conversation.
+    Parameters
+    ----------
+    state : State
+        The current state of the conversation.
 
-    Returns:
+    Returns
+    -------
+    Literal["__end__", "call_tool"]
         The name of the next node to call ("__end__" or "call_tool").
     """
     if not state.messages:

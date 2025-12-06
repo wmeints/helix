@@ -24,13 +24,19 @@ _custom_prompts: dict[str, Prompt] = {}
 
 
 def render_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel:
-    """Render a tool call with its parameters.
+    """
+    Render a tool call with its parameters.
 
-    Args:
-        tool_name: The name of the tool being called.
-        tool_args: Dictionary of argument names to values.
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool being called.
+    tool_args : dict[str, Any]
+        Dictionary of argument names to values.
 
-    Returns:
+    Returns
+    -------
+    Panel
         A Rich Panel displaying the tool call.
     """
     args_formatted = ", ".join(
@@ -53,13 +59,19 @@ def render_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel:
 
 
 def render_tool_result(tool_name: str, content: str) -> Panel:
-    """Render the result of a tool execution (first 5 lines).
+    """
+    Render the result of a tool execution (first 5 lines).
 
-    Args:
-        tool_name: The name of the tool that was executed.
-        content: The result/output from the tool.
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool that was executed.
+    content : str
+        The result/output from the tool.
 
-    Returns:
+    Returns
+    -------
+    Panel
         A Rich Panel displaying the tool result.
     """
     lines = content.split("\n")
@@ -78,12 +90,17 @@ def render_tool_result(tool_name: str, content: str) -> Panel:
 
 
 def render_agent_response(content: str) -> Panel:
-    """Render an agent response with markdown support.
+    """
+    Render an agent response with markdown support.
 
-    Args:
-        content: The agent's response content.
+    Parameters
+    ----------
+    content : str
+        The agent's response content.
 
-    Returns:
+    Returns
+    -------
+    Panel
         A Rich Panel displaying the agent's response.
     """
     markdown_content = Markdown(content)
@@ -97,10 +114,13 @@ def render_agent_response(content: str) -> Panel:
 
 
 def process_messages(messages: list) -> None:
-    """Process and display a list of messages from the agent.
+    """
+    Process and display a list of messages from the agent.
 
-    Args:
-        messages: List of message objects from the agent.
+    Parameters
+    ----------
+    messages : list
+        List of message objects from the agent.
     """
     for message in messages:
         if isinstance(message, HumanMessage):
@@ -127,10 +147,13 @@ def process_messages(messages: list) -> None:
 
 
 async def invoke_agent(prompt: str) -> None:
-    """Invoke the agent with streaming and display results in real-time.
+    """
+    Invoke the agent with streaming and display results in real-time.
 
-    Args:
-        prompt: The user's prompt to send to the agent.
+    Parameters
+    ----------
+    prompt : str
+        The user's prompt to send to the agent.
     """
     messages = [HumanMessage(content=prompt)]
 
@@ -176,9 +199,12 @@ async def invoke_agent(prompt: str) -> None:
 
 
 def get_user_prompt() -> str | None:
-    """Get a prompt from the user.
+    """
+    Get a prompt from the user.
 
-    Returns:
+    Returns
+    -------
+    str or None
         The user's input, or None if they want to exit.
     """
     console.print()
@@ -195,12 +221,17 @@ def get_user_prompt() -> str | None:
 
 
 def parse_prompt_command(user_input: str) -> tuple[str, str] | None:
-    """Parse a prompt command from user input.
+    """
+    Parse a prompt command from user input.
 
-    Args:
-        user_input: The user's input string.
+    Parameters
+    ----------
+    user_input : str
+        The user's input string.
 
-    Returns:
+    Returns
+    -------
+    tuple[str, str] or None
         A tuple of (prompt_name, args) if the input is a valid prompt command,
         None otherwise.
     """
@@ -244,7 +275,7 @@ def print_welcome_banner() -> None:
 
 
 async def run_interaction_loop() -> None:
-    """Run the main interaction loop."""
+    """Run the main interaction loop for the GUI."""
     global _custom_prompts
 
     # Load custom prompts at startup
@@ -282,7 +313,7 @@ async def run_interaction_loop() -> None:
 
 
 def run_gui() -> None:
-    """Run the GUI (synchronous entry point for CLI)."""
+    """Run the GUI as a synchronous entry point for the CLI."""
     try:
         asyncio.run(run_interaction_loop())
     except KeyboardInterrupt:

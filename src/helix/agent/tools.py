@@ -9,15 +9,22 @@ from langchain_core.tools import tool
 
 @tool
 def read_file(path: str, start_line: int = 1, end_line: int = -1) -> str:
-    """Read content from a file.
+    """
+    Read content from a file.
 
-    Args:
-        path: The path to the file to read.
-        start_line: The 1-indexed line number to start reading from (default: 1).
-        end_line: The 1-indexed line number to stop reading at (inclusive).
-                  Use -1 to read until the end of the file (default: -1).
+    Parameters
+    ----------
+    path : str
+        The path to the file to read.
+    start_line : int, optional
+        The 1-indexed line number to start reading from (default: 1).
+    end_line : int, optional
+        The 1-indexed line number to stop reading at (inclusive).
+        Use -1 to read until the end of the file (default: -1).
 
-    Returns:
+    Returns
+    -------
+    str
         The file content with line numbers, or an error message.
     """
     try:
@@ -56,15 +63,21 @@ def read_file(path: str, start_line: int = 1, end_line: int = -1) -> str:
 
 @tool
 def write_file(path: str, content: str) -> str:
-    """Write content to a file.
+    """
+    Write content to a file.
 
     Creates the file if it doesn't exist, or overwrites it if it does.
 
-    Args:
-        path: The path to the file to write.
-        content: The content to write to the file.
+    Parameters
+    ----------
+    path : str
+        The path to the file to write.
+    content : str
+        The content to write to the file.
 
-    Returns:
+    Returns
+    -------
+    str
         A success message, or an error message if the operation failed.
     """
     file_path = Path(path)
@@ -85,16 +98,23 @@ def write_file(path: str, content: str) -> str:
 
 @tool
 def insert_text(path: str, content: str, line_number: int) -> str:
-    """Insert text at a specific line in a file.
+    """
+    Insert text at a specific line in a file.
 
-    Args:
-        path: The path to the file to modify.
-        content: The content to insert.
-        line_number: The 1-indexed line number to insert the content at.
-                     Use 1 to insert at the start of the file.
-                     Use a value equal to the number of lines + 1 to append at the end.
+    Parameters
+    ----------
+    path : str
+        The path to the file to modify.
+    content : str
+        The content to insert.
+    line_number : int
+        The 1-indexed line number to insert the content at.
+        Use 1 to insert at the start of the file.
+        Use a value equal to the number of lines + 1 to append at the end.
 
-    Returns:
+    Returns
+    -------
+    str
         A success message, or an error message if the operation failed.
     """
     file_path = Path(path)
@@ -133,14 +153,19 @@ def insert_text(path: str, content: str, line_number: int) -> str:
 
 @tool
 def run_shell_command(command: str) -> str:
-    """Execute a shell command and return the output.
+    """
+    Execute a shell command and return the output.
 
     Uses cmd.exe on Windows and bash on other operating systems.
 
-    Args:
-        command: The shell command to execute.
+    Parameters
+    ----------
+    command : str
+        The shell command to execute.
 
-    Returns:
+    Returns
+    -------
+    str
         The stdout and stderr output from the command, or an error message.
     """
     try:
