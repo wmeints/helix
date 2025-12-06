@@ -1,8 +1,10 @@
 """Define a LangGraph stateful graph with call_llm and call_tool nodes."""
 
+import platform
 from pathlib import Path
 from typing import Dict, List, Literal, cast
 
+import chevron
 import tiktoken
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, trim_messages
 from langchain_ollama import ChatOllama
@@ -15,9 +17,30 @@ from helix.agent.tools import TOOLS
 # Maximum context window size in tokens (128K)
 MAX_CONTEXT_TOKENS = 128_000
 
-# Load system instructions from markdown file
+# Load system instructions template from markdown file
 _SYSTEM_INSTRUCTIONS_PATH = Path(__file__).parent / "system_instructions.md"
-_SYSTEM_INSTRUCTIONS = _SYSTEM_INSTRUCTIONS_PATH.read_text()
+_SYSTEM_INSTRUCTIONS_TEMPLATE = _SYSTEM_INSTRUCTIONS_PATH.read_text()
+
+
+def _render_system_instructions() -> str:
+    """
+    Render system instructions with environment context.
+
+    Uses chevron to render the system instructions template with
+    the current operating system and working directory.
+
+    Returns
+    -------
+    str
+        The rendered system instructions.
+    """
+    return chevron.render(
+        _SYSTEM_INSTRUCTIONS_TEMPLATE,
+        {
+            "operating_system": platform.system(),
+            "current_directory": str(Path.cwd()),
+        },
+    )
 
 
 def _load_custom_instructions() -> str | None:
@@ -93,7 +116,7 @@ async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     model = ChatOllama(model="qwen3-coder").bind_tools(TOOLS)
 
     # Build the messages list with system instructions
-    system_messages = [SystemMessage(content=_SYSTEM_INSTRUCTIONS)]
+    system_messages = [SystemMessage(content=_render_system_instructions())]
 
     # Add custom instructions if AGENTS.md exists
     custom_instructions = _load_custom_instructions()
