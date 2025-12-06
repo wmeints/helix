@@ -3,13 +3,17 @@
 from pathlib import Path
 from typing import Dict, List, Literal, cast
 
-from langchain_core.messages import AIMessage, SystemMessage
+import tiktoken
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, trim_messages
 from langchain_ollama import ChatOllama
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 
 from helix.agent.state import InputState, State
 from helix.agent.tools import TOOLS
+
+# Maximum context window size in tokens (128K)
+MAX_CONTEXT_TOKENS = 128_000
 
 # Load system instructions from markdown file
 _SYSTEM_INSTRUCTIONS_PATH = Path(__file__).parent / "system_instructions.md"
@@ -30,10 +34,41 @@ def _load_custom_instructions() -> str | None:
     return None
 
 
+def _count_tokens(messages: list[BaseMessage]) -> int:
+    """Count the number of tokens in a list of messages.
+
+    Uses tiktoken with cl100k_base encoding for token counting.
+    This is an approximation for non-OpenAI models but provides
+    a reasonable estimate for context window management.
+
+    Args:
+        messages: List of messages to count tokens for.
+
+    Returns:
+        The total number of tokens across all messages.
+    """
+    encoding = tiktoken.get_encoding("cl100k_base")
+    total_tokens = 0
+
+    for message in messages:
+        content = message.content
+        if isinstance(content, str):
+            total_tokens += len(encoding.encode(content))
+        elif isinstance(content, list):
+            for item in content:
+                if isinstance(item, str):
+                    total_tokens += len(encoding.encode(item))
+                elif isinstance(item, dict) and "text" in item:
+                    total_tokens += len(encoding.encode(item["text"]))
+
+    return total_tokens
+
+
 async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     """Call the LLM to generate a response.
 
     This function prepares the model with tool binding and processes the response.
+    Messages are trimmed to fit within the 128K token context window.
 
     Args:
         state: The current state of the conversation.
@@ -55,10 +90,21 @@ async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
 
     messages = [*system_messages, *state.messages]
 
+    # Trim messages to fit within the context window
+    trimmed_messages = trim_messages(
+        messages,
+        max_tokens=MAX_CONTEXT_TOKENS,
+        token_counter=_count_tokens,
+        strategy="last",
+        start_on="human",
+        include_system=True,
+        allow_partial=False,
+    )
+
     # Get the model's response
     response = cast(
         AIMessage,
-        await model.ainvoke(messages),
+        await model.ainvoke(trimmed_messages),
     )
 
     # Return the model's response as a list to be added to existing messages
