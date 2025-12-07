@@ -44,6 +44,7 @@ helix -p "Your prompt"
 
 ## Documentation
 
+- [User Guide](docs/user/README.md) - Installation, usage, and configuration
 - [Architecture Documentation](docs/architecture/README.md) - Detailed system
   architecture following the arc42 template
 
