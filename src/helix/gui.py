@@ -736,7 +736,7 @@ async def run_interaction_loop() -> None:
         # Check for /clear command
         if user_prompt.strip().lower() == CLEAR_COMMAND:
             clear_conversation()
-            console.print("[dim]Conversation cleared.[/dim]")
+            console.clear()
             continue
 
         # Check for /prompts command
