@@ -8,12 +8,12 @@ from langgraph.types import Command
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt as RichPrompt
+from rich.prompt import Prompt as RichPrompt
 from rich.text import Text
 
 from helix.agent.graph import THREAD_ID, clear_conversation, graph
 from helix.prompts import Prompt, load_prompts
-from helix.settings import check_permission, get_settings
+from helix.settings import add_allow_rule, check_permission, get_settings
 
 # Global console instance
 console = Console()
@@ -486,6 +486,11 @@ def prompt_tool_approval(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
     """
     Prompt the user to approve or decline a tool call.
 
+    Options:
+    - yes: Allow this tool call once
+    - no: Deny this tool call
+    - always: Allow and create a permission rule for future calls
+
     Parameters
     ----------
     tool_name : str
@@ -520,9 +525,18 @@ def prompt_tool_approval(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
         )
     )
 
-    approved = Confirm.ask("Allow this tool?", console=console, default=False)
+    choice = RichPrompt.ask(
+        "Allow this tool? [bold](y)es[/bold] / [bold](n)o[/bold] / [bold](a)lways[/bold]",
+        console=console,
+        choices=["y", "n", "a", "yes", "no", "always"],
+        default="n",
+    )
 
-    if approved:
+    if choice in ("y", "yes"):
+        return {"approved": True}
+    elif choice in ("a", "always"):
+        rule = add_allow_rule(tool_name, tool_args)
+        console.print(f"[green]Added allow rule:[/green] {rule}")
         return {"approved": True}
     else:
         return {"approved": False, "reason": "declined by user"}

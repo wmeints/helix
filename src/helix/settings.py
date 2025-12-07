@@ -274,3 +274,76 @@ def reload_settings() -> Settings:
     global _settings
     _settings = load_settings()
     return _settings
+
+
+def save_settings(settings: Settings, base_path: Path | None = None) -> None:
+    """
+    Save settings to .helix/settings.json.
+
+    Parameters
+    ----------
+    settings : Settings
+        The settings to save.
+    base_path : Path | None, optional
+        The base path for .helix/settings.json.
+        Defaults to the current working directory.
+    """
+    if base_path is None:
+        base_path = Path.cwd()
+
+    helix_dir = base_path / ".helix"
+    helix_dir.mkdir(parents=True, exist_ok=True)
+
+    settings_path = helix_dir / "settings.json"
+
+    data = {
+        "permissions": {
+            "allow": settings.permissions.allow,
+            "deny": settings.permissions.deny,
+        }
+    }
+
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+
+def add_allow_rule(tool_name: str, tool_args: dict[str, Any]) -> str:
+    """
+    Add an allow rule for a tool and save settings.
+
+    For run_shell_command, creates a pattern rule based on the command prefix.
+    For other tools, creates a simple tool name rule.
+
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool.
+    tool_args : dict[str, Any]
+        The arguments passed to the tool.
+
+    Returns
+    -------
+    str
+        The rule that was added.
+    """
+    global _settings
+
+    if _settings is None:
+        _settings = load_settings()
+
+    # Create the rule
+    if tool_name == "run_shell_command":
+        command = tool_args.get("command", "")
+        # Use the first word of the command as the prefix with wildcard
+        first_word = command.split()[0] if command.split() else command
+        rule = f"run_shell_command({first_word}:*)"
+    else:
+        rule = tool_name
+
+    # Add the rule if not already present
+    if rule not in _settings.permissions.allow:
+        _settings.permissions.allow.append(rule)
+        save_settings(_settings)
+
+    return rule
