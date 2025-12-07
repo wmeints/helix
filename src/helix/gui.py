@@ -113,7 +113,9 @@ def render_special_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel
                 text.append(f" (from line {start_line} to end)", style="dim")
         else:
             line_count = end_line - start_line + 1
-            text.append(f" (lines {start_line}-{end_line}, {line_count} lines)", style="dim")
+            text.append(
+                f" (lines {start_line}-{end_line}, {line_count} lines)", style="dim"
+            )
 
         return Panel(
             text,
@@ -305,9 +307,7 @@ def print_prompts_list() -> None:
     """Print the list of available prompts."""
     if not _custom_prompts:
         console.print("[dim]No prompts available.[/dim]")
-        console.print(
-            "[dim]Add prompts to .helix/prompts/ as .prompt.md files.[/dim]"
-        )
+        console.print("[dim]Add prompts to .helix/prompts/ as .prompt.md files.[/dim]")
         return
 
     text = Text()
@@ -636,7 +636,7 @@ def get_user_prompt() -> str | None:
     console.print()
 
     try:
-        user_input = RichPrompt.ask("[bold green]>[/bold green]", console=console)
+        user_input = RichPrompt.ask("[bold green]Prompt[/bold green]", console=console)
     except (KeyboardInterrupt, EOFError):
         return None
 
