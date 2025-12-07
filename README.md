@@ -17,7 +17,7 @@ shell commands, and help with various software engineering tasks.
 ## Installation
 
 ```bash
-uv sync
+uv tool install git+https://github.com/wmeints/helix
 ```
 
 ## Usage
@@ -25,8 +25,10 @@ uv sync
 **Interactive mode:**
 
 ```bash
-uv run helix
+helix [-p "Your prompt"]
 ```
+
+Leave out the `-p` parameter if you want to work interactively with the agent.
 
 **Single prompt mode:**
 
