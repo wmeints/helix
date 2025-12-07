@@ -2,15 +2,22 @@
 
 import platform
 from pathlib import Path
-from typing import Dict, List, Literal, cast
+from typing import Any, Dict, List, Literal, cast
 
 import chevron
 import tiktoken
-from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, trim_messages
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    SystemMessage,
+    ToolMessage,
+    trim_messages,
+)
 from langchain_ollama import ChatOllama
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
+from langgraph.types import interrupt
 
 from helix.agent.state import InputState, State
 from helix.agent.tools import TOOLS, clear_todos
@@ -148,23 +155,12 @@ async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     return {"messages": [response]}
 
 
-# Define a new graph
-builder = StateGraph(State, input_schema=InputState)
-
-# Define the two nodes
-builder.add_node("call_llm", call_llm)
-builder.add_node("call_tool", ToolNode(TOOLS))
-
-# Set the entrypoint as call_llm
-# This means that this node is the first one called
-builder.add_edge("__start__", "call_llm")
-
-
-def should_call_tools(state: State) -> Literal["__end__", "call_tool"]:
+def check_tool_approval(state: State) -> Dict[str, Any]:
     """
-    Determine the next node based on whether the last message has tool calls.
+    Check if tool calls require user approval.
 
-    This function checks if the model's last message contains tool calls.
+    This function interrupts execution for each tool call, allowing the user
+    to confirm or decline the operation.
 
     Parameters
     ----------
@@ -173,8 +169,82 @@ def should_call_tools(state: State) -> Literal["__end__", "call_tool"]:
 
     Returns
     -------
-    Literal["__end__", "call_tool"]
-        The name of the next node to call ("__end__" or "call_tool").
+    Dict[str, Any]
+        An empty dict if all tools were approved, or messages with decline
+        responses for any declined tools.
+    """
+    if not state.messages:
+        return {}
+
+    last_message = state.messages[-1]
+
+    if not isinstance(last_message, AIMessage):
+        return {}
+
+    if not last_message.tool_calls:
+        return {}
+
+    declined_messages: List[ToolMessage] = []
+
+    for tool_call in last_message.tool_calls:
+        tool_name = tool_call["name"]
+        tool_args = tool_call["args"]
+
+        # Interrupt and wait for user approval
+        approval = interrupt(
+            {
+                "type": "tool_approval",
+                "tool_name": tool_name,
+                "tool_args": tool_args,
+                "tool_call_id": tool_call["id"],
+            }
+        )
+
+        if not approval.get("approved", False):
+            # User declined - add a tool message indicating the decline
+            declined_messages.append(
+                ToolMessage(
+                    content=f"Tool '{tool_name}' declined by user.",
+                    tool_call_id=tool_call["id"],
+                    name=tool_name,
+                )
+            )
+
+    if declined_messages:
+        return {"messages": declined_messages}
+
+    return {}
+
+
+# Define a new graph
+builder = StateGraph(State, input_schema=InputState)
+
+# Define the nodes
+builder.add_node("call_llm", call_llm)
+builder.add_node("check_tool_approval", check_tool_approval)
+builder.add_node("call_tool", ToolNode(TOOLS))
+
+# Set the entrypoint as call_llm
+# This means that this node is the first one called
+builder.add_edge("__start__", "call_llm")
+
+
+def should_call_tools(state: State) -> Literal["__end__", "check_tool_approval"]:
+    """
+    Determine the next node based on whether the last message has tool calls.
+
+    This function checks if the model's last message contains tool calls.
+    All tool calls are routed through approval.
+
+    Parameters
+    ----------
+    state : State
+        The current state of the conversation.
+
+    Returns
+    -------
+    Literal["__end__", "check_tool_approval"]
+        The name of the next node to call.
     """
     if not state.messages:
         return "__end__"
@@ -184,11 +254,9 @@ def should_call_tools(state: State) -> Literal["__end__", "call_tool"]:
     if not isinstance(last_message, AIMessage):
         return "__end__"
 
-    # If there are tool calls, go to call_tool node
     if last_message.tool_calls:
-        return "call_tool"
+        return "check_tool_approval"
 
-    # Otherwise, end the turn
     return "__end__"
 
 
@@ -199,6 +267,39 @@ builder.add_conditional_edges(
     # based on the output from should_call_tools
     should_call_tools,
 )
+
+def should_execute_tools(state: State) -> Literal["call_tool", "call_llm"]:
+    """
+    Determine if tools should be executed after approval check.
+
+    If the last message is a ToolMessage with a decline, skip tool execution
+    and return to the LLM. Otherwise, proceed with tool execution.
+
+    Parameters
+    ----------
+    state : State
+        The current state of the conversation.
+
+    Returns
+    -------
+    Literal["call_tool", "call_llm"]
+        The name of the next node to call.
+    """
+    if not state.messages:
+        return "call_tool"
+
+    last_message = state.messages[-1]
+
+    # If the last message is a tool decline message, go back to LLM
+    if isinstance(last_message, ToolMessage):
+        if "declined by user" in str(last_message.content):
+            return "call_llm"
+
+    return "call_tool"
+
+
+# Add conditional edge from tool approval check
+builder.add_conditional_edges("check_tool_approval", should_execute_tools)
 
 # Add a normal edge from call_tool back to call_llm
 # This creates a cycle: after using tools, we return to the model

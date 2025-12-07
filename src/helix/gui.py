@@ -4,10 +4,11 @@ import asyncio
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langgraph.types import Command
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.prompt import Prompt as RichPrompt
+from rich.prompt import Confirm, Prompt as RichPrompt
 from rich.text import Text
 
 from helix.agent.graph import THREAD_ID, clear_conversation, graph
@@ -362,9 +363,52 @@ def process_messages(messages: list) -> None:
                 console.print(panel)
 
 
+def prompt_tool_approval(tool_name: str, tool_args: dict[str, Any]) -> bool:
+    """
+    Prompt the user to approve or decline a tool call.
+
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool to approve.
+    tool_args : dict[str, Any]
+        The arguments being passed to the tool.
+
+    Returns
+    -------
+    bool
+        True if the user approved, False if declined.
+    """
+    text = Text()
+    text.append("The agent wants to use: ", style="yellow")
+    text.append(tool_name, style="bold magenta")
+    text.append("\n\n", style="")
+
+    # Format arguments for display
+    for key, value in tool_args.items():
+        text.append(f"  {key}: ", style="dim")
+        value_str = str(value)
+        if len(value_str) > 100:
+            value_str = value_str[:100] + "..."
+        text.append(f"{value_str}\n", style="")
+
+    console.print(
+        Panel(
+            text,
+            title="[yellow]Tool Approval[/yellow]",
+            border_style="yellow",
+            padding=(1, 2),
+        )
+    )
+
+    return Confirm.ask("Allow this tool?", console=console, default=False)
+
+
 async def invoke_agent(prompt: str) -> None:
     """
     Invoke the agent with streaming and display results in real-time.
+
+    Handles interrupts for shell command approval.
 
     Parameters
     ----------
@@ -375,43 +419,80 @@ async def invoke_agent(prompt: str) -> None:
     config = {"configurable": {"thread_id": THREAD_ID}}
 
     try:
-        async for chunk in graph.astream({"messages": messages}, config):
-            # Each chunk contains updates from a node
-            # The chunk is a dict with node name as key
-            for node_name, node_output in chunk.items():
-                if "messages" not in node_output:
-                    continue
+        input_data: dict[str, Any] | None = {"messages": messages}
 
-                new_messages = node_output["messages"]
-                for message in new_messages:
-                    # Process each new message as it arrives
-                    if isinstance(message, AIMessage):
-                        # Display content first if present
-                        if message.content and str(message.content).strip():
-                            panel = render_agent_response(str(message.content))
-                            console.print(panel)
+        while True:
+            async for chunk in graph.astream(input_data, config):
+                # Each chunk contains updates from a node
+                # The chunk is a dict with node name as key
+                for node_name, node_output in chunk.items():
+                    if node_output is None or "messages" not in node_output:
+                        continue
 
-                        # Then check for tool calls
-                        if hasattr(message, "tool_calls") and message.tool_calls:
-                            for tool_call in message.tool_calls:
-                                # Check for special tool handling
-                                special_panel = render_special_tool_call(
-                                    tool_call["name"], tool_call["args"]
-                                )
-                                if special_panel:
-                                    console.print(special_panel)
-                                else:
-                                    panel = render_tool_call(
+                    new_messages = node_output["messages"]
+                    for message in new_messages:
+                        # Process each new message as it arrives
+                        if isinstance(message, AIMessage):
+                            # Display content first if present
+                            if message.content and str(message.content).strip():
+                                panel = render_agent_response(str(message.content))
+                                console.print(panel)
+
+                            # Then check for tool calls
+                            if hasattr(message, "tool_calls") and message.tool_calls:
+                                for tool_call in message.tool_calls:
+                                    # Check for special tool handling
+                                    special_panel = render_special_tool_call(
                                         tool_call["name"], tool_call["args"]
                                     )
-                                    console.print(panel)
+                                    if special_panel:
+                                        console.print(special_panel)
+                                    else:
+                                        panel = render_tool_call(
+                                            tool_call["name"], tool_call["args"]
+                                        )
+                                        console.print(panel)
 
-                    elif isinstance(message, ToolMessage):
-                        # Display tool results (first 5 lines), unless suppressed
-                        tool_name = message.name or "tool"
-                        if not should_suppress_tool_result(tool_name):
-                            panel = render_tool_result(tool_name, str(message.content))
-                            console.print(panel)
+                        elif isinstance(message, ToolMessage):
+                            # Display tool results (first 5 lines), unless suppressed
+                            tool_name = message.name or "tool"
+                            if not should_suppress_tool_result(tool_name):
+                                panel = render_tool_result(
+                                    tool_name, str(message.content)
+                                )
+                                console.print(panel)
+
+            # Check for interrupts after streaming completes
+            state = graph.get_state(config)
+
+            if state.tasks and any(
+                task.interrupts for task in state.tasks if hasattr(task, "interrupts")
+            ):
+                # Handle interrupt - get the interrupt data
+                for task in state.tasks:
+                    if hasattr(task, "interrupts") and task.interrupts:
+                        for interrupt_data in task.interrupts:
+                            if (
+                                hasattr(interrupt_data, "value")
+                                and isinstance(interrupt_data.value, dict)
+                                and interrupt_data.value.get("type") == "tool_approval"
+                            ):
+                                tool_name = interrupt_data.value.get("tool_name", "")
+                                tool_args = interrupt_data.value.get("tool_args", {})
+                                approved = prompt_tool_approval(tool_name, tool_args)
+
+                                # Resume with the approval result
+                                input_data = Command(resume={"approved": approved})
+                                break
+                        else:
+                            continue
+                        break
+                else:
+                    # No tool approval interrupt found, exit loop
+                    break
+            else:
+                # No interrupts, exit loop
+                break
 
     except Exception as e:
         console.print(
