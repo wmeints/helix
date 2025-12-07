@@ -13,6 +13,7 @@ from rich.text import Text
 
 from helix.agent.graph import THREAD_ID, clear_conversation, graph
 from helix.prompts import Prompt, load_prompts
+from helix.settings import check_permission, get_settings
 
 # Global console instance
 console = Console()
@@ -363,7 +364,119 @@ def process_messages(messages: list) -> None:
                 console.print(panel)
 
 
-def prompt_tool_approval(tool_name: str, tool_args: dict[str, Any]) -> bool:
+def render_tool_auto_approved(tool_name: str, tool_args: dict[str, Any]) -> Panel:
+    """
+    Render a message for a tool that was auto-approved by settings.
+
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool.
+    tool_args : dict[str, Any]
+        The arguments being passed to the tool.
+
+    Returns
+    -------
+    Panel
+        A Rich Panel displaying the auto-approval message.
+    """
+    text = Text()
+    text.append("Auto-approved: ", style="green")
+    text.append(tool_name, style="bold magenta")
+
+    # Show command for shell commands
+    if tool_name == "run_shell_command" and "command" in tool_args:
+        text.append(" (", style="dim")
+        command = tool_args["command"]
+        if len(command) > 50:
+            command = command[:50] + "..."
+        text.append(command, style="cyan")
+        text.append(")", style="dim")
+
+    return Panel(
+        text,
+        border_style="green",
+        padding=(0, 1),
+    )
+
+
+def render_tool_denied(tool_name: str, tool_args: dict[str, Any]) -> Panel:
+    """
+    Render a message for a tool that was denied by settings.
+
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool.
+    tool_args : dict[str, Any]
+        The arguments being passed to the tool.
+
+    Returns
+    -------
+    Panel
+        A Rich Panel displaying the denial message.
+    """
+    text = Text()
+    text.append("Denied by settings: ", style="red")
+    text.append(tool_name, style="bold magenta")
+
+    # Show command for shell commands
+    if tool_name == "run_shell_command" and "command" in tool_args:
+        text.append(" (", style="dim")
+        command = tool_args["command"]
+        if len(command) > 50:
+            command = command[:50] + "..."
+        text.append(command, style="cyan")
+        text.append(")", style="dim")
+
+    return Panel(
+        text,
+        border_style="red",
+        padding=(0, 1),
+    )
+
+
+def check_tool_permission(
+    tool_name: str,
+    tool_args: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Check tool permission and return approval response.
+
+    This function checks the settings for permission rules and returns
+    the appropriate approval response. If allowed or denied by settings,
+    it displays visual feedback. If no rule matches, it prompts the user.
+
+    Parameters
+    ----------
+    tool_name : str
+        The name of the tool to check.
+    tool_args : dict[str, Any]
+        The arguments being passed to the tool.
+
+    Returns
+    -------
+    dict[str, Any]
+        A dict with 'approved' (bool) and optionally 'reason' (str).
+    """
+    settings = get_settings()
+    permission = check_permission(settings, tool_name, tool_args)
+
+    if permission is True:
+        # Allowed by settings
+        console.print(render_tool_auto_approved(tool_name, tool_args))
+        return {"approved": True}
+
+    if permission is False:
+        # Denied by settings
+        console.print(render_tool_denied(tool_name, tool_args))
+        return {"approved": False, "reason": "denied by settings"}
+
+    # No matching rule - prompt user
+    return prompt_tool_approval(tool_name, tool_args)
+
+
+def prompt_tool_approval(tool_name: str, tool_args: dict[str, Any]) -> dict[str, Any]:
     """
     Prompt the user to approve or decline a tool call.
 
@@ -376,8 +489,8 @@ def prompt_tool_approval(tool_name: str, tool_args: dict[str, Any]) -> bool:
 
     Returns
     -------
-    bool
-        True if the user approved, False if declined.
+    dict[str, Any]
+        A dict with 'approved' (bool) and optionally 'reason' (str).
     """
     text = Text()
     text.append("The agent wants to use: ", style="yellow")
@@ -401,7 +514,12 @@ def prompt_tool_approval(tool_name: str, tool_args: dict[str, Any]) -> bool:
         )
     )
 
-    return Confirm.ask("Allow this tool?", console=console, default=False)
+    approved = Confirm.ask("Allow this tool?", console=console, default=False)
+
+    if approved:
+        return {"approved": True}
+    else:
+        return {"approved": False, "reason": "declined by user"}
 
 
 async def invoke_agent(prompt: str) -> None:
@@ -479,10 +597,12 @@ async def invoke_agent(prompt: str) -> None:
                             ):
                                 tool_name = interrupt_data.value.get("tool_name", "")
                                 tool_args = interrupt_data.value.get("tool_args", {})
-                                approved = prompt_tool_approval(tool_name, tool_args)
+
+                                # Check permissions and prompt user if needed
+                                approval = check_tool_permission(tool_name, tool_args)
 
                                 # Resume with the approval result
-                                input_data = Command(resume={"approved": approved})
+                                input_data = Command(resume=approval)
                                 break
                         else:
                             continue

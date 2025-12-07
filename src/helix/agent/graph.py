@@ -159,8 +159,8 @@ def check_tool_approval(state: State) -> Dict[str, Any]:
     """
     Check if tool calls require user approval.
 
-    This function interrupts execution for each tool call, allowing the user
-    to confirm or decline the operation.
+    This function interrupts execution for each tool call, allowing the GUI
+    to check permissions and prompt the user if needed.
 
     Parameters
     ----------
@@ -190,7 +190,7 @@ def check_tool_approval(state: State) -> Dict[str, Any]:
         tool_name = tool_call["name"]
         tool_args = tool_call["args"]
 
-        # Interrupt and wait for user approval
+        # Interrupt and wait for approval decision from GUI
         approval = interrupt(
             {
                 "type": "tool_approval",
@@ -201,10 +201,11 @@ def check_tool_approval(state: State) -> Dict[str, Any]:
         )
 
         if not approval.get("approved", False):
-            # User declined - add a tool message indicating the decline
+            # Tool was declined - add a tool message indicating the decline
+            reason = approval.get("reason", "declined by user")
             declined_messages.append(
                 ToolMessage(
-                    content=f"Tool '{tool_name}' declined by user.",
+                    content=f"Tool '{tool_name}' {reason}.",
                     tool_call_id=tool_call["id"],
                     name=tool_name,
                 )
@@ -292,7 +293,8 @@ def should_execute_tools(state: State) -> Literal["call_tool", "call_llm"]:
 
     # If the last message is a tool decline message, go back to LLM
     if isinstance(last_message, ToolMessage):
-        if "declined by user" in str(last_message.content):
+        content = str(last_message.content)
+        if "declined by user" in content or "denied by settings" in content:
             return "call_llm"
 
     return "call_tool"

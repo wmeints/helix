@@ -1,0 +1,276 @@
+"""Settings management for the Helix agent."""
+
+import json
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+
+@dataclass
+class Permissions:
+    """
+    Permission rules for tool execution.
+
+    Attributes
+    ----------
+    allow : list[str]
+        List of allow rules. Rules can be:
+        - Simple tool name: "read_file", "write_file"
+        - Tool with command pattern: "run_shell_command(uv:*)"
+    deny : list[str]
+        List of deny rules. Same format as allow rules.
+    """
+
+    allow: list[str] = field(default_factory=list)
+    deny: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Settings:
+    """
+    Application settings.
+
+    Attributes
+    ----------
+    permissions : Permissions
+        Permission rules for tool execution.
+    """
+
+    permissions: Permissions = field(default_factory=Permissions)
+
+
+def _parse_rule(rule: str) -> tuple[str, str | None]:
+    """
+    Parse a permission rule into tool name and optional pattern.
+
+    Parameters
+    ----------
+    rule : str
+        The rule string, e.g., "read_file" or "run_shell_command(uv:*)".
+
+    Returns
+    -------
+    tuple[str, str | None]
+        A tuple of (tool_name, pattern). Pattern is None for simple rules.
+    """
+    match = re.match(r"^([a-z_]+)(?:\((.+)\))?$", rule)
+
+    if not match:
+        return (rule, None)
+
+    tool_name = match.group(1)
+    pattern = match.group(2)
+
+    return (tool_name, pattern)
+
+
+def _match_command_pattern(command: str, pattern: str) -> bool:
+    """
+    Match a shell command against a pattern.
+
+    Pattern syntax:
+    - "uv" matches exactly "uv"
+    - "uv:*" matches "uv" and "uv <anything>"
+    - "uv run:*" matches "uv run" and "uv run <anything>"
+    - "uv run pytest" matches exactly "uv run pytest"
+
+    Parameters
+    ----------
+    command : str
+        The shell command to check.
+    pattern : str
+        The pattern to match against.
+
+    Returns
+    -------
+    bool
+        True if the command matches the pattern.
+    """
+    # Normalize whitespace
+    command = command.strip()
+    pattern = pattern.strip()
+
+    if pattern.endswith(":*"):
+        # Wildcard pattern: match prefix
+        prefix = pattern[:-2]
+        # Match exactly the prefix, or prefix followed by space and more
+        return command == prefix or command.startswith(prefix + " ")
+
+    # Exact match
+    return command == pattern
+
+
+def match_rule(
+    rule: str,
+    tool_name: str,
+    tool_args: dict[str, Any],
+) -> bool:
+    """
+    Check if a tool call matches a permission rule.
+
+    Parameters
+    ----------
+    rule : str
+        The permission rule to check.
+    tool_name : str
+        The name of the tool being called.
+    tool_args : dict[str, Any]
+        The arguments passed to the tool.
+
+    Returns
+    -------
+    bool
+        True if the tool call matches the rule.
+    """
+    rule_tool, rule_pattern = _parse_rule(rule)
+
+    # Tool name must match
+    if rule_tool != tool_name:
+        return False
+
+    # If no pattern, it's a simple tool match
+    if rule_pattern is None:
+        return True
+
+    # Pattern matching only applies to run_shell_command
+    if tool_name == "run_shell_command":
+        command = tool_args.get("command", "")
+        return _match_command_pattern(command, rule_pattern)
+
+    # For other tools with patterns, no match (patterns only for shell commands)
+    return False
+
+
+def check_permission(
+    settings: Settings,
+    tool_name: str,
+    tool_args: dict[str, Any],
+) -> bool | None:
+    """
+    Check if a tool call is allowed, denied, or needs user approval.
+
+    Rules are evaluated in order:
+    1. If any deny rule matches, return False (denied)
+    2. If any allow rule matches, return True (allowed)
+    3. If no rules match, return None (requires approval)
+
+    Parameters
+    ----------
+    settings : Settings
+        The application settings.
+    tool_name : str
+        The name of the tool being called.
+    tool_args : dict[str, Any]
+        The arguments passed to the tool.
+
+    Returns
+    -------
+    bool | None
+        True if allowed, False if denied, None if requires approval.
+    """
+    # Check deny rules first
+    for rule in settings.permissions.deny:
+        if match_rule(rule, tool_name, tool_args):
+            return False
+
+    # Check allow rules
+    for rule in settings.permissions.allow:
+        if match_rule(rule, tool_name, tool_args):
+            return True
+
+    # No matching rules - requires approval
+    return None
+
+
+def load_settings(base_path: Path | None = None) -> Settings:
+    """
+    Load settings from .helix/settings.json.
+
+    If the file or directory doesn't exist, returns default settings.
+
+    Parameters
+    ----------
+    base_path : Path | None, optional
+        The base path to look for .helix/settings.json.
+        Defaults to the current working directory.
+
+    Returns
+    -------
+    Settings
+        The loaded settings, or defaults if the file doesn't exist.
+    """
+    if base_path is None:
+        base_path = Path.cwd()
+
+    settings_path = base_path / ".helix" / "settings.json"
+
+    if not settings_path.exists():
+        return Settings()
+
+    try:
+        with open(settings_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return Settings()
+
+    return _parse_settings(data)
+
+
+def _parse_settings(data: dict[str, Any]) -> Settings:
+    """
+    Parse settings from a dictionary.
+
+    Parameters
+    ----------
+    data : dict[str, Any]
+        The settings data.
+
+    Returns
+    -------
+    Settings
+        The parsed settings.
+    """
+    permissions_data = data.get("permissions", {})
+
+    permissions = Permissions(
+        allow=permissions_data.get("allow", []),
+        deny=permissions_data.get("deny", []),
+    )
+
+    return Settings(permissions=permissions)
+
+
+# Global settings instance
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """
+    Get the current settings, loading them if necessary.
+
+    Returns
+    -------
+    Settings
+        The current settings.
+    """
+    global _settings
+
+    if _settings is None:
+        _settings = load_settings()
+
+    return _settings
+
+
+def reload_settings() -> Settings:
+    """
+    Reload settings from disk.
+
+    Returns
+    -------
+    Settings
+        The reloaded settings.
+    """
+    global _settings
+    _settings = load_settings()
+    return _settings
