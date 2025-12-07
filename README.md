@@ -25,15 +25,13 @@ uv tool install git+https://github.com/wmeints/helix
 **Interactive mode:**
 
 ```bash
-helix [-p "Your prompt"]
+helix 
 ```
-
-Leave out the `-p` parameter if you want to work interactively with the agent.
 
 **Single prompt mode:**
 
 ```bash
-uv run helix -p "Your prompt here"
+helix -p "Your prompt"
 ```
 
 ## Commands
@@ -48,19 +46,6 @@ uv run helix -p "Your prompt here"
 
 - [Architecture Documentation](docs/architecture/README.md) - Detailed system
   architecture following the arc42 template
-
-## Development
-
-```bash
-# Run tests
-uv run pytest
-
-# Check code quality
-uv run ruff check
-
-# Fix linting issues
-uv run ruff check --fix
-```
 
 ## License
 
