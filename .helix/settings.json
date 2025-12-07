@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "run_shell_command(find:*)",
+      "read_file",
+      "run_shell_command(ls:*)"
+    ],
+    "deny": []
+  }
+}
