@@ -27,170 +27,227 @@ PROMPTS_COMMAND = "/prompts"
 _custom_prompts: dict[str, Prompt] = {}
 
 
-def render_special_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel | None:
+def _render_read_todos_call(tool_args: dict[str, Any]) -> Panel:
     """
-    Render user-friendly messages for specific tool calls.
+    Render the read_todos tool call.
 
     Parameters
     ----------
-    tool_name : str
-        The name of the tool being called.
     tool_args : dict[str, Any]
         Dictionary of argument names to values.
 
     Returns
     -------
-    Panel or None
-        A Rich Panel with friendly messaging, or None if no special handling.
+    Panel
+        A Rich Panel with friendly messaging.
     """
-    if tool_name == "read_todos":
+    text = Text()
+    text.append("Looking up todo items...", style="cyan")
+    return Panel(
+        text,
+        border_style="cyan",
+        padding=(0, 1),
+    )
+
+
+def _render_write_todos_call(tool_args: dict[str, Any]) -> Panel:
+    """
+    Render the write_todos tool call.
+
+    Parameters
+    ----------
+    tool_args : dict[str, Any]
+        Dictionary of argument names to values.
+
+    Returns
+    -------
+    Panel
+        A Rich Panel with friendly messaging.
+    """
+    todos = tool_args.get("todos", [])
+
+    # Check if all todos are completed
+    all_completed = (
+        all(todo.get("status") == "completed" for todo in todos) if todos else False
+    )
+
+    if all_completed and todos:
         text = Text()
-        text.append("Looking up todo items...", style="cyan")
-        return Panel(
-            text,
-            border_style="cyan",
-            padding=(0, 1),
-        )
-
-    if tool_name == "write_todos":
-        todos = tool_args.get("todos", [])
-
-        # Check if all todos are completed
-        all_completed = (
-            all(todo.get("status") == "completed" for todo in todos) if todos else False
-        )
-
-        if all_completed and todos:
-            text = Text()
-            text.append("Agent has finished all tasks", style="green bold")
-            return Panel(
-                text,
-                border_style="green",
-                padding=(0, 1),
-            )
-
-        # Check if there's a todo marked as in_progress
-        in_progress_todo = None
-        for todo in todos:
-            if todo.get("status") == "in_progress":
-                in_progress_todo = todo
-                break
-
-        if in_progress_todo:
-            text = Text()
-            text.append("Working on: ", style="yellow")
-            text.append(
-                in_progress_todo.get("description", "Unknown task"), style="bold"
-            )
-            return Panel(
-                text,
-                border_style="yellow",
-                padding=(0, 1),
-            )
-
-        # Fallback: show how many todos were updated
-        text = Text()
-        text.append(f"Updated todo list with {len(todos)} item(s)", style="cyan")
-        return Panel(
-            text,
-            border_style="cyan",
-            padding=(0, 1),
-        )
-
-    if tool_name == "read_file":
-        path = tool_args.get("path", "unknown")
-        start_line = tool_args.get("start_line", 1)
-        end_line = tool_args.get("end_line", -1)
-
-        text = Text()
-        text.append("Reading ", style="cyan")
-        text.append(path, style="bold")
-
-        if end_line == -1:
-            if start_line == 1:
-                text.append(" (entire file)", style="dim")
-            else:
-                text.append(f" (from line {start_line} to end)", style="dim")
-        else:
-            line_count = end_line - start_line + 1
-            text.append(
-                f" (lines {start_line}-{end_line}, {line_count} lines)", style="dim"
-            )
-
-        return Panel(
-            text,
-            border_style="cyan",
-            padding=(0, 1),
-        )
-
-    if tool_name == "write_file":
-        path = tool_args.get("path", "unknown")
-        content = tool_args.get("content", "")
-        line_count = len(content.split("\n"))
-
-        text = Text()
-        text.append("Writing ", style="green")
-        text.append(f"{line_count} line(s)", style="bold")
-        text.append(" to ", style="green")
-        text.append(path, style="bold")
-
+        text.append("Agent has finished all tasks", style="green bold")
         return Panel(
             text,
             border_style="green",
             padding=(0, 1),
         )
 
-    if tool_name == "insert_text":
-        path = tool_args.get("path", "unknown")
-        line_number = tool_args.get("line_number", 0)
-        content = tool_args.get("content", "")
-        line_count = len(content.split("\n"))
+    # Check if there's a todo marked as in_progress
+    in_progress_todo = None
+    for todo in todos:
+        if todo.get("status") == "in_progress":
+            in_progress_todo = todo
+            break
 
+    if in_progress_todo:
         text = Text()
-        text.append("Inserting ", style="yellow")
-        text.append(f"{line_count} line(s)", style="bold")
-        text.append(" at line ", style="yellow")
-        text.append(str(line_number), style="bold")
-        text.append(" in ", style="yellow")
-        text.append(path, style="bold")
-
+        text.append("Working on: ", style="yellow")
+        text.append(in_progress_todo.get("description", "Unknown task"), style="bold")
         return Panel(
             text,
             border_style="yellow",
             padding=(0, 1),
         )
 
-    if tool_name == "run_shell_command":
-        command = tool_args.get("command", "unknown")
-
-        text = Text()
-        text.append("Executing: ", style="magenta")
-        text.append(command, style="bold")
-
-        return Panel(
-            text,
-            border_style="magenta",
-            padding=(0, 1),
-        )
-
-    return None
+    # Fallback: show how many todos were updated
+    text = Text()
+    text.append(f"Updated todo list with {len(todos)} item(s)", style="cyan")
+    return Panel(
+        text,
+        border_style="cyan",
+        padding=(0, 1),
+    )
 
 
-def should_suppress_tool_result(tool_name: str) -> bool:
+def _render_read_file_call(tool_args: dict[str, Any]) -> Panel:
     """
-    Check if tool result should be suppressed from display.
+    Render the read_file tool call.
 
     Parameters
     ----------
-    tool_name : str
-        The name of the tool.
+    tool_args : dict[str, Any]
+        Dictionary of argument names to values.
 
     Returns
     -------
-    bool
-        True if the tool result should not be displayed.
+    Panel
+        A Rich Panel with friendly messaging.
     """
-    return tool_name in ("read_todos", "write_todos", "write_file", "insert_text")
+    path = tool_args.get("path", "unknown")
+    start_line = tool_args.get("start_line", 1)
+    end_line = tool_args.get("end_line", -1)
+
+    text = Text()
+    text.append("Reading ", style="cyan")
+    text.append(path, style="bold")
+
+    if end_line == -1:
+        if start_line == 1:
+            text.append(" (entire file)", style="dim")
+        else:
+            text.append(f" (from line {start_line} to end)", style="dim")
+    else:
+        line_count = end_line - start_line + 1
+        text.append(
+            f" (lines {start_line}-{end_line}, {line_count} lines)", style="dim"
+        )
+
+    return Panel(
+        text,
+        border_style="cyan",
+        padding=(0, 1),
+    )
+
+
+def _render_write_file_call(tool_args: dict[str, Any]) -> Panel:
+    """
+    Render the write_file tool call.
+
+    Parameters
+    ----------
+    tool_args : dict[str, Any]
+        Dictionary of argument names to values.
+
+    Returns
+    -------
+    Panel
+        A Rich Panel with friendly messaging.
+    """
+    path = tool_args.get("path", "unknown")
+    content = tool_args.get("content", "")
+    line_count = len(content.split("\n"))
+
+    text = Text()
+    text.append("Writing ", style="green")
+    text.append(f"{line_count} line(s)", style="bold")
+    text.append(" to ", style="green")
+    text.append(path, style="bold")
+
+    return Panel(
+        text,
+        border_style="green",
+        padding=(0, 1),
+    )
+
+
+def _render_insert_text_call(tool_args: dict[str, Any]) -> Panel:
+    """
+    Render the insert_text tool call.
+
+    Parameters
+    ----------
+    tool_args : dict[str, Any]
+        Dictionary of argument names to values.
+
+    Returns
+    -------
+    Panel
+        A Rich Panel with friendly messaging.
+    """
+    path = tool_args.get("path", "unknown")
+    line_number = tool_args.get("line_number", 0)
+    content = tool_args.get("content", "")
+    line_count = len(content.split("\n"))
+
+    text = Text()
+    text.append("Inserting ", style="yellow")
+    text.append(f"{line_count} line(s)", style="bold")
+    text.append(" at line ", style="yellow")
+    text.append(str(line_number), style="bold")
+    text.append(" in ", style="yellow")
+    text.append(path, style="bold")
+
+    return Panel(
+        text,
+        border_style="yellow",
+        padding=(0, 1),
+    )
+
+
+def _render_run_shell_command_call(tool_args: dict[str, Any]) -> Panel:
+    """
+    Render the run_shell_command tool call.
+
+    Parameters
+    ----------
+    tool_args : dict[str, Any]
+        Dictionary of argument names to values.
+
+    Returns
+    -------
+    Panel
+        A Rich Panel with friendly messaging.
+    """
+    command = tool_args.get("command", "unknown")
+
+    text = Text()
+    text.append("Executing: ", style="magenta")
+    text.append(command, style="bold")
+
+    return Panel(
+        text,
+        border_style="magenta",
+        padding=(0, 1),
+    )
+
+
+# Dispatch table mapping tool names to their render functions
+_TOOL_RENDERERS: dict[str, callable] = {
+    "read_todos": _render_read_todos_call,
+    "write_todos": _render_write_todos_call,
+    "read_file": _render_read_file_call,
+    "write_file": _render_write_file_call,
+    "insert_text": _render_insert_text_call,
+    "run_shell_command": _render_run_shell_command_call,
+}
 
 
 def render_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel:
@@ -209,23 +266,13 @@ def render_tool_call(tool_name: str, tool_args: dict[str, Any]) -> Panel:
     Panel
         A Rich Panel displaying the tool call.
     """
-    args_formatted = ", ".join(
-        f"{key}={repr(value)}" for key, value in tool_args.items()
-    )
+    renderer = _TOOL_RENDERERS.get(tool_name)
 
-    call_text = Text()
-    call_text.append("Calling ", style="dim")
-    call_text.append(tool_name, style="bold magenta")
-    call_text.append("(", style="dim")
-    call_text.append(args_formatted, style="cyan")
-    call_text.append(")", style="dim")
+    if renderer is not None:
+        return renderer(tool_args)
 
-    return Panel(
-        call_text,
-        title="[yellow]Tool Invocation[/yellow]",
-        border_style="yellow",
-        padding=(0, 1),
-    )
+    err_message = f"No rendering found for tool {tool_name}"
+    raise ValueError(err_message)
 
 
 def get_tool_result_max_lines(tool_name: str) -> int:
@@ -321,47 +368,6 @@ def print_prompts_list() -> None:
             text.append(f" - {prompt.description}", style="dim")
 
     console.print(Panel(text, border_style="cyan", padding=(1, 2)))
-
-
-def process_messages(messages: list) -> None:
-    """
-    Process and display a list of messages from the agent.
-
-    Parameters
-    ----------
-    messages : list
-        List of message objects from the agent.
-    """
-    for message in messages:
-        if isinstance(message, HumanMessage):
-            # Skip human messages as they're already displayed
-            continue
-
-        if isinstance(message, AIMessage):
-            # Display content first if present
-            if message.content and str(message.content).strip():
-                panel = render_agent_response(str(message.content))
-                console.print(panel)
-
-            # Then check for tool calls
-            if hasattr(message, "tool_calls") and message.tool_calls:
-                for tool_call in message.tool_calls:
-                    # Check for special tool handling
-                    special_panel = render_special_tool_call(
-                        tool_call["name"], tool_call["args"]
-                    )
-                    if special_panel:
-                        console.print(special_panel)
-                    else:
-                        panel = render_tool_call(tool_call["name"], tool_call["args"])
-                        console.print(panel)
-
-        elif isinstance(message, ToolMessage):
-            # Display tool results (first 5 lines), unless suppressed
-            tool_name = message.name or "tool"
-            if not should_suppress_tool_result(tool_name):
-                panel = render_tool_result(tool_name, str(message.content))
-                console.print(panel)
 
 
 def render_tool_auto_approved(tool_name: str, tool_args: dict[str, Any]) -> Panel:
@@ -559,26 +565,15 @@ async def invoke_agent(prompt: str) -> None:
                             # Then check for tool calls
                             if hasattr(message, "tool_calls") and message.tool_calls:
                                 for tool_call in message.tool_calls:
-                                    # Check for special tool handling
-                                    special_panel = render_special_tool_call(
+                                    panel = render_tool_call(
                                         tool_call["name"], tool_call["args"]
                                     )
-                                    if special_panel:
-                                        console.print(special_panel)
-                                    else:
-                                        panel = render_tool_call(
-                                            tool_call["name"], tool_call["args"]
-                                        )
-                                        console.print(panel)
-
+                                    console.print(panel)
                         elif isinstance(message, ToolMessage):
                             # Display tool results (first 5 lines), unless suppressed
                             tool_name = message.name or "tool"
-                            if not should_suppress_tool_result(tool_name):
-                                panel = render_tool_result(
-                                    tool_name, str(message.content)
-                                )
-                                console.print(panel)
+                            panel = render_tool_result(tool_name, str(message.content))
+                            console.print(panel)
 
             # Check for interrupts after streaming completes
             state = graph.get_state(config)
