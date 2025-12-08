@@ -2,10 +2,14 @@
 
 import asyncio
 import signal
+from pathlib import Path
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.types import Command
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -18,6 +22,118 @@ from helix.settings import add_allow_rule, check_permission, get_settings
 
 # Global console instance
 console = Console()
+
+# Set up prompt session with history file in .helix directory
+_history_dir = Path.cwd() / ".helix"
+_history_dir.mkdir(exist_ok=True)
+_history_file = _history_dir / "history"
+_prompt_session: PromptSession | None = None
+
+
+class CommandCompleter(Completer):
+    """
+    Custom completer for slash commands that filters as you type.
+
+    Attributes
+    ----------
+    commands : list[str]
+        List of available commands to complete.
+    """
+
+    def __init__(self, commands: list[str]):
+        """
+        Initialize the completer with available commands.
+
+        Parameters
+        ----------
+        commands : list[str]
+            List of commands to offer as completions.
+        """
+        self.commands = commands
+
+    def get_completions(self, document, complete_event):
+        """
+        Get completions for the current input.
+
+        Parameters
+        ----------
+        document : Document
+            The current document being edited.
+        complete_event : CompleteEvent
+            The completion event.
+
+        Yields
+        ------
+        Completion
+            Matching command completions.
+        """
+        text = document.text_before_cursor
+
+        # Find the current word (including /)
+        word_start = len(text)
+        for i in range(len(text) - 1, -1, -1):
+            if text[i].isspace():
+                break
+            word_start = i
+
+        current_word = text[word_start:]
+
+        # Only complete if starting with /
+        if not current_word.startswith("/"):
+            return
+
+        for command in self.commands:
+            if command.lower().startswith(current_word.lower()):
+                yield Completion(
+                    command,
+                    start_position=-len(current_word),
+                )
+
+
+def _build_completer() -> CommandCompleter:
+    """
+    Build a completer with built-in commands and custom prompts.
+
+    Returns
+    -------
+    CommandCompleter
+        A completer containing all available commands.
+    """
+    commands = ["/exit", "/clear", "/prompts"]
+
+    # Add custom prompt commands
+    for prompt_name in _custom_prompts:
+        commands.append(f"/{prompt_name}")
+
+    return CommandCompleter(commands)
+
+
+def _get_prompt_session() -> PromptSession:
+    """
+    Get or create the prompt session with history and auto-completion.
+
+    Returns
+    -------
+    PromptSession
+        The prompt session instance with file-based history and command completion.
+    """
+    global _prompt_session
+    if _prompt_session is None:
+        _prompt_session = PromptSession(
+            history=FileHistory(str(_history_file)),
+            completer=_build_completer(),
+        )
+    return _prompt_session
+
+
+def _refresh_prompt_session() -> None:
+    """
+    Refresh the prompt session to update completions.
+
+    Call this after loading or reloading custom prompts.
+    """
+    global _prompt_session
+    _prompt_session = None
 
 # Global variable to track the current agent task
 _current_agent_task: asyncio.Task | None = None
@@ -641,9 +757,12 @@ async def invoke_agent(prompt: str) -> None:
         )
 
 
-def get_user_prompt() -> str | None:
+async def get_user_prompt() -> str | None:
     """
-    Get a prompt from the user.
+    Get a prompt from the user with history support.
+
+    Uses prompt-toolkit to provide input history navigation via up/down arrows.
+    History is persisted to .helix/history file.
 
     Returns
     -------
@@ -653,7 +772,8 @@ def get_user_prompt() -> str | None:
     console.print()
 
     try:
-        user_input = RichPrompt.ask("[bold green]Prompt[/bold green]", console=console)
+        session = _get_prompt_session()
+        user_input = await session.prompt_async("Prompt: ")
     except (KeyboardInterrupt, EOFError):
         return None
 
@@ -728,10 +848,13 @@ async def run_interaction_loop() -> None:
     # Load custom prompts at startup
     _custom_prompts = load_prompts()
 
+    # Refresh prompt session to include custom prompts in auto-completion
+    _refresh_prompt_session()
+
     print_welcome_banner()
 
     while True:
-        user_prompt = get_user_prompt()
+        user_prompt = await get_user_prompt()
 
         if user_prompt is None:
             console.print("\n[dim]Goodbye![/dim]")
