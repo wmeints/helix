@@ -8,6 +8,62 @@ guide explains all available settings and how to configure them.
 Settings are stored in `.helix/settings.json` in your project directory. If
 this file doesn't exist, Helix uses default settings.
 
+## Model Configuration
+
+You can configure which LLM model to use and the context window size.
+
+### Basic Structure
+
+```json
+{
+  "model": "qwen3-coder",
+  "context_window_size": 128000,
+  "permissions": {
+    "allow": [],
+    "deny": []
+  }
+}
+```
+
+### Model
+
+The `model` setting specifies which Ollama model to use. The default is
+`qwen3-coder`. You can change this to any model available in your Ollama
+installation:
+
+```json
+{
+  "model": "llama3.1"
+}
+```
+
+Make sure the model is pulled in Ollama before using it:
+
+```bash
+ollama pull llama3.1
+```
+
+### Context Window Size
+
+The `context_window_size` setting controls how many tokens can fit in the
+model's context window. The default is `128000` (128K tokens), which matches
+the qwen3-coder model's context window.
+
+When using a different model, adjust this to match its context window:
+
+```json
+{
+  "model": "llama3.1",
+  "context_window_size": 128000
+}
+```
+
+Common context window sizes:
+
+- qwen3-coder: 128,000 tokens
+- llama3.1: 128,000 tokens
+- gemma2: 8,192 tokens (8K) or 128,000 tokens (128K) depending on variant
+
 ## Permissions
 
 The primary setting is `permissions`, which controls which tools the agent can
@@ -87,6 +143,8 @@ and a deny rule, it will be **denied**.
 
 ```json
 {
+  "model": "qwen3-coder",
+  "context_window_size": 128000,
   "permissions": {
     "allow": [
       "read_file",
@@ -103,6 +161,7 @@ and a deny rule, it will be **denied**.
 
 This configuration:
 
+- Uses the qwen3-coder model with a 128K context window
 - Automatically approves reading files
 - Automatically approves `uv` and `git` commands
 - Blocks `rm` and `sudo` commands

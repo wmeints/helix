@@ -5,11 +5,10 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
+from helix.settings import get_settings
+
 # Default Ollama API base URL
 OLLAMA_BASE_URL = "http://localhost:11434"
-
-# Required model name
-REQUIRED_MODEL = "qwen3-coder"
 
 
 @dataclass
@@ -37,7 +36,7 @@ class OllamaStatus:
 
 def check_ollama_status(
     base_url: str = OLLAMA_BASE_URL,
-    required_model: str = REQUIRED_MODEL,
+    required_model: str | None = None,
 ) -> OllamaStatus:
     """
     Check if Ollama is running and the required model is available.
@@ -46,14 +45,18 @@ def check_ollama_status(
     ----------
     base_url : str, optional
         The base URL for the Ollama API (default: http://localhost:11434).
-    required_model : str, optional
-        The model name to check for (default: qwen3-coder).
+    required_model : str | None, optional
+        The model name to check for. If None, uses the model from settings.
 
     Returns
     -------
     OllamaStatus
         Status containing connectivity and model availability info.
     """
+    # Use model from settings if not explicitly provided
+    if required_model is None:
+        settings = get_settings()
+        required_model = settings.model
     try:
         # Try to list available models
         request = urllib.request.Request(
