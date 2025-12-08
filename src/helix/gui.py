@@ -100,7 +100,7 @@ def _build_completer() -> CommandCompleter:
     CommandCompleter
         A completer containing all available commands.
     """
-    commands = ["/exit", "/clear", "/prompts"]
+    commands = ["/exit", "/clear", "/prompts", "/models"]
 
     # Add custom prompt commands
     for prompt_name in _custom_prompts:
@@ -135,6 +135,7 @@ def _refresh_prompt_session() -> None:
     """
     global _prompt_session
     _prompt_session = None
+
 
 # Global variable to track the current agent task
 _current_agent_task: asyncio.Task | None = None
@@ -932,7 +933,9 @@ async def run_interaction_loop() -> None:
                 rendered_prompt = custom_prompt.render(args)
                 try:
                     # Create and track the agent task
-                    _current_agent_task = asyncio.create_task(invoke_agent(rendered_prompt))
+                    _current_agent_task = asyncio.create_task(
+                        invoke_agent(rendered_prompt)
+                    )
                     await _current_agent_task
                 except asyncio.CancelledError:
                     # Agent was interrupted, continue with the loop
