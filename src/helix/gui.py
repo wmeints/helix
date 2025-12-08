@@ -788,17 +788,26 @@ async def run_interaction_loop() -> None:
 
 def _handle_interrupt(sig, frame):
     """
-    Handle SIGINT (Ctrl+C) by cancelling the current agent task if running.
-    
+    Handle SIGINT (Ctrl+C) by canceling the current agent task if running.
+
+    If an agent task is currently running, it will be canceled, allowing the
+    user to interrupt the agent's work. If no agent task is running (i.e., the
+    application is idle), a KeyboardInterrupt is raised to exit the application.
+
     Parameters
     ----------
     sig : int
         The signal number.
     frame : frame
         The current stack frame.
+
+    Raises
+    ------
+    KeyboardInterrupt
+        When no agent task is running, to exit the application.
     """
     global _current_agent_task
-    
+
     if _current_agent_task is not None and not _current_agent_task.done():
         # Agent is running, cancel it
         _current_agent_task.cancel()
