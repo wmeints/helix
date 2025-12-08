@@ -2,10 +2,13 @@
 
 import asyncio
 import signal
+from pathlib import Path
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.types import Command
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -18,6 +21,27 @@ from helix.settings import add_allow_rule, check_permission, get_settings
 
 # Global console instance
 console = Console()
+
+# Set up prompt session with history file in .helix directory
+_history_dir = Path.cwd() / ".helix"
+_history_dir.mkdir(exist_ok=True)
+_history_file = _history_dir / "history"
+_prompt_session: PromptSession | None = None
+
+
+def _get_prompt_session() -> PromptSession:
+    """
+    Get or create the prompt session with history.
+
+    Returns
+    -------
+    PromptSession
+        The prompt session instance with file-based history.
+    """
+    global _prompt_session
+    if _prompt_session is None:
+        _prompt_session = PromptSession(history=FileHistory(str(_history_file)))
+    return _prompt_session
 
 # Global variable to track the current agent task
 _current_agent_task: asyncio.Task | None = None
@@ -641,9 +665,12 @@ async def invoke_agent(prompt: str) -> None:
         )
 
 
-def get_user_prompt() -> str | None:
+async def get_user_prompt() -> str | None:
     """
-    Get a prompt from the user.
+    Get a prompt from the user with history support.
+
+    Uses prompt-toolkit to provide input history navigation via up/down arrows.
+    History is persisted to .helix/history file.
 
     Returns
     -------
@@ -653,7 +680,8 @@ def get_user_prompt() -> str | None:
     console.print()
 
     try:
-        user_input = RichPrompt.ask("[bold green]Prompt[/bold green]", console=console)
+        session = _get_prompt_session()
+        user_input = await session.prompt_async("Prompt: ")
     except (KeyboardInterrupt, EOFError):
         return None
 
@@ -731,7 +759,7 @@ async def run_interaction_loop() -> None:
     print_welcome_banner()
 
     while True:
-        user_prompt = get_user_prompt()
+        user_prompt = await get_user_prompt()
 
         if user_prompt is None:
             console.print("\n[dim]Goodbye![/dim]")

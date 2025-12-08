@@ -13,6 +13,7 @@ dependencies = [
     "langchain-core>=1.1.1",
     "langchain-ollama>=1.0.0",
     "langgraph>=1.0.4",
+    "prompt-toolkit>=3.0.52",
     "python-frontmatter>=1.1.0",
     "rich>=14.2.0",
     "tiktoken>=0.7.0",
