@@ -61,7 +61,7 @@ When using a different model, adjust this to match its context window:
 Common context window sizes:
 
 - qwen3-coder: 128,000 tokens
-- llama3.1: 128,000 tokens  
+- llama3.1: 128,000 tokens
 - gemma2: 8,192 tokens (8K) or 128,000 tokens (128K) depending on variant
 
 ## Permissions
