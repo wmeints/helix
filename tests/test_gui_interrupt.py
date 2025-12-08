@@ -15,7 +15,7 @@ async def test_invoke_agent_handles_cancellation():
     with patch("helix.gui.graph") as mock_graph:
         # Create an async generator that we can cancel
         async def mock_stream():
-            await asyncio.sleep(10)  # Simulate long operation
+            await asyncio.sleep(0.5)  # Simulate long operation
             yield {}
 
         mock_graph.astream = MagicMock(return_value=mock_stream())
@@ -44,7 +44,7 @@ async def test_invoke_agent_displays_interrupt_message_on_cancellation():
     ):
         # Create an async generator that we can cancel
         async def mock_stream():
-            await asyncio.sleep(10)  # Simulate long operation
+            await asyncio.sleep(0.5)  # Simulate long operation
             yield {}
 
         mock_graph.astream = MagicMock(return_value=mock_stream())
@@ -82,8 +82,8 @@ async def test_invoke_agent_completes_normally_without_cancellation():
         mock_graph.astream = MagicMock(return_value=mock_stream())
         mock_graph.get_state = MagicMock(return_value=MagicMock(tasks=[]))
 
-        # Run invoke_agent without cancellation
+        # Run invoke_agent without cancellation - should complete normally
         await invoke_agent("test prompt")
 
-        # Should complete without raising CancelledError
-        # If we got here, the test passed
+        # Verify graph.astream was called
+        assert mock_graph.astream.called

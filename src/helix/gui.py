@@ -820,7 +820,7 @@ def run_gui() -> None:
     """Run the GUI as a synchronous entry point for the CLI."""
     # Install signal handler for Ctrl+C
     signal.signal(signal.SIGINT, _handle_interrupt)
-    
+
     try:
         asyncio.run(run_interaction_loop())
     except KeyboardInterrupt:
