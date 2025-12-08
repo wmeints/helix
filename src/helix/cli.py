@@ -66,7 +66,12 @@ def main(prompt: str | None):
 
     if prompt is not None:
         # Single prompt mode
-        asyncio.run(invoke_agent(prompt))
+        try:
+            asyncio.run(invoke_agent(prompt))
+        except KeyboardInterrupt:
+            console = Console()
+            console.print("\n[yellow]Agent interrupted by user[/yellow]")
+            sys.exit(130)  # Standard exit code for SIGINT
     else:
         # Interactive mode
         run_gui()
