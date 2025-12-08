@@ -17,6 +17,7 @@ from rich.prompt import Prompt as RichPrompt
 from rich.text import Text
 
 from helix.agent.graph import THREAD_ID, clear_conversation, graph
+from helix.ollama import check_ollama_status
 from helix.prompts import Prompt, load_prompts
 from helix.settings import add_allow_rule, check_permission, get_settings
 
@@ -99,7 +100,7 @@ def _build_completer() -> CommandCompleter:
     CommandCompleter
         A completer containing all available commands.
     """
-    commands = ["/exit", "/clear", "/prompts"]
+    commands = ["/exit", "/clear", "/prompts", "/models"]
 
     # Add custom prompt commands
     for prompt_name in _custom_prompts:
@@ -135,6 +136,7 @@ def _refresh_prompt_session() -> None:
     global _prompt_session
     _prompt_session = None
 
+
 # Global variable to track the current agent task
 _current_agent_task: asyncio.Task | None = None
 
@@ -142,6 +144,7 @@ _current_agent_task: asyncio.Task | None = None
 EXIT_COMMAND = "/exit"
 CLEAR_COMMAND = "/clear"
 PROMPTS_COMMAND = "/prompts"
+MODELS_COMMAND = "/models"
 
 # Loaded custom prompts
 _custom_prompts: dict[str, Prompt] = {}
@@ -490,6 +493,43 @@ def print_prompts_list() -> None:
     console.print(Panel(text, border_style="cyan", padding=(1, 2)))
 
 
+def print_models_list() -> None:
+    """Print the list of available Ollama models."""
+    status = check_ollama_status()
+
+    if not status.is_running:
+        text = Text()
+        text.append("Ollama is not running\n\n", style="bold red")
+        text.append("Please start Ollama to see available models.\n", style="")
+        text.append("You can start it with: ", style="dim")
+        text.append("ollama serve", style="bold")
+
+        if status.error_message:
+            text.append(f"\n\nError: {status.error_message}", style="dim red")
+
+        console.print(Panel(text, title="[red]Error[/red]", border_style="red"))
+        return
+
+    if not status.available_models:
+        console.print("[dim]No models available.[/dim]")
+        console.print("[dim]Pull a model with: ollama pull <model-name>[/dim]")
+        return
+
+    settings = get_settings()
+    text = Text()
+    text.append("Available Ollama models:\n", style="bold")
+
+    for model in status.available_models:
+        text.append("\n  ")
+        if model == settings.model:
+            text.append(model, style="bold green")
+            text.append(" (active)", style="dim green")
+        else:
+            text.append(model, style="")
+
+    console.print(Panel(text, border_style="cyan", padding=(1, 2)))
+
+
 def render_tool_auto_approved(tool_name: str, tool_args: dict[str, Any]) -> Panel:
     """
     Render a message for a tool that was auto-approved by settings.
@@ -824,6 +864,8 @@ def print_welcome_banner() -> None:
     banner.append(" to reset, ", style="dim")
     banner.append("/prompts", style="bold")
     banner.append(" to list prompts, ", style="dim")
+    banner.append("/models", style="bold")
+    banner.append(" to list models, ", style="dim")
     banner.append("/exit", style="bold")
     banner.append(" to quit.", style="dim")
 
@@ -875,6 +917,11 @@ async def run_interaction_loop() -> None:
             print_prompts_list()
             continue
 
+        # Check for /models command
+        if user_prompt.strip().lower() == MODELS_COMMAND:
+            print_models_list()
+            continue
+
         # Check if this is a custom prompt command
         parsed = parse_prompt_command(user_prompt)
 
@@ -886,7 +933,9 @@ async def run_interaction_loop() -> None:
                 rendered_prompt = custom_prompt.render(args)
                 try:
                     # Create and track the agent task
-                    _current_agent_task = asyncio.create_task(invoke_agent(rendered_prompt))
+                    _current_agent_task = asyncio.create_task(
+                        invoke_agent(rendered_prompt)
+                    )
                     await _current_agent_task
                 except asyncio.CancelledError:
                     # Agent was interrupted, continue with the loop
