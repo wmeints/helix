@@ -7,7 +7,8 @@ from rich.panel import Panel
 from rich.text import Text
 
 from helix.gui import invoke_agent, run_gui
-from helix.ollama import REQUIRED_MODEL, check_ollama_status
+from helix.ollama import check_ollama_status
+from helix.settings import get_settings
 
 
 def _check_ollama_available() -> bool:
@@ -22,6 +23,7 @@ def _check_ollama_available() -> bool:
         True if Ollama is ready, False otherwise.
     """
     console = Console()
+    settings = get_settings()
     status = check_ollama_status()
 
     if not status.is_running:
@@ -39,10 +41,10 @@ def _check_ollama_available() -> bool:
 
     if not status.model_available:
         text = Text()
-        text.append(f"Model '{REQUIRED_MODEL}' is not available\n\n", style="bold red")
+        text.append(f"Model '{settings.model}' is not available\n\n", style="bold red")
         text.append("Please pull the model before using Helix.\n", style="")
         text.append("You can pull it with: ", style="dim")
-        text.append(f"ollama pull {REQUIRED_MODEL}", style="bold")
+        text.append(f"ollama pull {settings.model}", style="bold")
 
         if status.available_models:
             text.append("\n\nAvailable models: ", style="dim")

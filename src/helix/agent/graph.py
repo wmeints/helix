@@ -21,9 +21,7 @@ from langgraph.types import interrupt
 
 from helix.agent.state import InputState, State
 from helix.agent.tools import TOOLS, clear_todos
-
-# Maximum context window size in tokens (128K)
-MAX_CONTEXT_TOKENS = 128_000
+from helix.settings import get_settings
 
 # Load system instructions template from markdown file
 _SYSTEM_INSTRUCTIONS_PATH = Path(__file__).parent / "system_instructions.md"
@@ -108,7 +106,7 @@ async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     Call the LLM to generate a response.
 
     This function prepares the model with tool binding and processes the response.
-    Messages are trimmed to fit within the 128K token context window.
+    Messages are trimmed to fit within the configured context window.
 
     Parameters
     ----------
@@ -120,8 +118,11 @@ async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     Dict[str, List[AIMessage]]
         A dictionary containing the model's response message.
     """
+    # Get settings to determine model and context window size
+    settings = get_settings()
+
     # Initialize the model with tool binding
-    model = ChatOllama(model="qwen3-coder").bind_tools(TOOLS)
+    model = ChatOllama(model=settings.model).bind_tools(TOOLS)
 
     # Build the messages list with system instructions
     system_messages = [SystemMessage(content=_render_system_instructions())]
@@ -137,7 +138,7 @@ async def call_llm(state: State) -> Dict[str, List[AIMessage]]:
     # Trim messages to fit within the context window
     trimmed_messages = trim_messages(
         messages,
-        max_tokens=MAX_CONTEXT_TOKENS,
+        max_tokens=settings.context_window_size,
         token_counter=_count_tokens,
         strategy="last",
         start_on="human",

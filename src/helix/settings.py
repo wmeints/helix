@@ -35,9 +35,15 @@ class Settings:
     ----------
     permissions : Permissions
         Permission rules for tool execution.
+    model : str
+        The LLM model to use (default: qwen3-coder).
+    context_window_size : int
+        The context window size in tokens (default: 128000).
     """
 
     permissions: Permissions = field(default_factory=Permissions)
+    model: str = "qwen3-coder"
+    context_window_size: int = 128_000
 
 
 def _parse_rule(rule: str) -> tuple[str, str | None]:
@@ -238,7 +244,14 @@ def _parse_settings(data: dict[str, Any]) -> Settings:
         deny=permissions_data.get("deny", []),
     )
 
-    return Settings(permissions=permissions)
+    model = data.get("model", "qwen3-coder")
+    context_window_size = data.get("context_window_size", 128_000)
+
+    return Settings(
+        permissions=permissions,
+        model=model,
+        context_window_size=context_window_size,
+    )
 
 
 # Global settings instance
@@ -300,7 +313,9 @@ def save_settings(settings: Settings, base_path: Path | None = None) -> None:
         "permissions": {
             "allow": settings.permissions.allow,
             "deny": settings.permissions.deny,
-        }
+        },
+        "model": settings.model,
+        "context_window_size": settings.context_window_size,
     }
 
     with open(settings_path, "w", encoding="utf-8") as f:

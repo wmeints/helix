@@ -6,6 +6,7 @@ from helix.settings import (
     Settings,
     Permissions,
     load_settings,
+    save_settings,
     match_rule,
     check_permission,
     _parse_rule,
@@ -212,6 +213,8 @@ class TestLoadSettings:
         assert isinstance(settings, Settings)
         assert settings.permissions.allow == []
         assert settings.permissions.deny == []
+        assert settings.model == "qwen3-coder"
+        assert settings.context_window_size == 128_000
 
     def test_load_default_when_no_directory(self, tmp_path):
         """Load default settings when .helix directory doesn't exist."""
@@ -220,6 +223,8 @@ class TestLoadSettings:
         assert isinstance(settings, Settings)
         assert settings.permissions.allow == []
         assert settings.permissions.deny == []
+        assert settings.model == "qwen3-coder"
+        assert settings.context_window_size == 128_000
 
     def test_load_settings_from_file(self, tmp_path):
         """Load settings from JSON file."""
@@ -238,6 +243,8 @@ class TestLoadSettings:
 
         assert settings.permissions.allow == ["read_file", "run_shell_command(uv:*)"]
         assert settings.permissions.deny == ["write_file"]
+        assert settings.model == "qwen3-coder"
+        assert settings.context_window_size == 128_000
 
     def test_load_settings_with_invalid_json(self, tmp_path):
         """Load default settings when JSON is invalid."""
@@ -251,6 +258,8 @@ class TestLoadSettings:
 
         assert settings.permissions.allow == []
         assert settings.permissions.deny == []
+        assert settings.model == "qwen3-coder"
+        assert settings.context_window_size == 128_000
 
     def test_load_settings_with_missing_permissions(self, tmp_path):
         """Load settings with missing permissions key."""
@@ -264,3 +273,97 @@ class TestLoadSettings:
 
         assert settings.permissions.allow == []
         assert settings.permissions.deny == []
+        assert settings.model == "qwen3-coder"
+        assert settings.context_window_size == 128_000
+
+    def test_load_settings_with_custom_model(self, tmp_path):
+        """Load settings with custom model and context window size."""
+        helix_dir = tmp_path / ".helix"
+        helix_dir.mkdir()
+
+        settings_file = helix_dir / "settings.json"
+        settings_file.write_text(json.dumps({
+            "model": "llama3.1",
+            "context_window_size": 256000,
+            "permissions": {
+                "allow": [],
+                "deny": [],
+            }
+        }))
+
+        settings = load_settings(tmp_path)
+
+        assert settings.model == "llama3.1"
+        assert settings.context_window_size == 256000
+
+    def test_load_settings_with_only_model(self, tmp_path):
+        """Load settings with only model specified."""
+        helix_dir = tmp_path / ".helix"
+        helix_dir.mkdir()
+
+        settings_file = helix_dir / "settings.json"
+        settings_file.write_text(json.dumps({
+            "model": "gemma2",
+        }))
+
+        settings = load_settings(tmp_path)
+
+        assert settings.model == "gemma2"
+        assert settings.context_window_size == 128_000
+
+
+class TestSaveSettings:
+    """Tests for save_settings function."""
+
+    def test_save_default_settings(self, tmp_path):
+        """Save default settings to JSON file."""
+        settings = Settings()
+        save_settings(settings, tmp_path)
+
+        settings_file = tmp_path / ".helix" / "settings.json"
+        assert settings_file.exists()
+
+        data = json.loads(settings_file.read_text())
+        assert data["model"] == "qwen3-coder"
+        assert data["context_window_size"] == 128_000
+        assert data["permissions"]["allow"] == []
+        assert data["permissions"]["deny"] == []
+
+    def test_save_custom_settings(self, tmp_path):
+        """Save custom settings to JSON file."""
+        settings = Settings(
+            model="llama3.1",
+            context_window_size=256000,
+            permissions=Permissions(
+                allow=["read_file"],
+                deny=["write_file"],
+            ),
+        )
+        save_settings(settings, tmp_path)
+
+        settings_file = tmp_path / ".helix" / "settings.json"
+        data = json.loads(settings_file.read_text())
+
+        assert data["model"] == "llama3.1"
+        assert data["context_window_size"] == 256000
+        assert data["permissions"]["allow"] == ["read_file"]
+        assert data["permissions"]["deny"] == ["write_file"]
+
+    def test_save_and_load_roundtrip(self, tmp_path):
+        """Save and load settings should preserve all values."""
+        original = Settings(
+            model="gemma2",
+            context_window_size=64000,
+            permissions=Permissions(
+                allow=["run_shell_command(uv:*)"],
+                deny=[],
+            ),
+        )
+        save_settings(original, tmp_path)
+
+        loaded = load_settings(tmp_path)
+
+        assert loaded.model == original.model
+        assert loaded.context_window_size == original.context_window_size
+        assert loaded.permissions.allow == original.permissions.allow
+        assert loaded.permissions.deny == original.permissions.deny
