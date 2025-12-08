@@ -1,6 +1,7 @@
 """Rich-based terminal GUI for the Helix coding agent."""
 
 import asyncio
+import signal
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -17,6 +18,9 @@ from helix.settings import add_allow_rule, check_permission, get_settings
 
 # Global console instance
 console = Console()
+
+# Global variable to track the current agent task
+_current_agent_task: asyncio.Task | None = None
 
 # Built-in commands
 EXIT_COMMAND = "/exit"
@@ -623,6 +627,10 @@ async def invoke_agent(prompt: str) -> None:
                 # No interrupts, exit loop
                 break
 
+    except asyncio.CancelledError:
+        # Task was cancelled (user pressed Ctrl+C)
+        console.print("\n[yellow]Agent interrupted by user[/yellow]")
+        raise
     except Exception as e:
         console.print(
             Panel(
@@ -715,7 +723,7 @@ def print_welcome_banner() -> None:
 
 async def run_interaction_loop() -> None:
     """Run the main interaction loop for the GUI."""
-    global _custom_prompts
+    global _custom_prompts, _current_agent_task
 
     # Load custom prompts at startup
     _custom_prompts = load_prompts()
@@ -753,18 +761,58 @@ async def run_interaction_loop() -> None:
             if prompt_name in _custom_prompts:
                 custom_prompt = _custom_prompts[prompt_name]
                 rendered_prompt = custom_prompt.render(args)
-                await invoke_agent(rendered_prompt)
+                try:
+                    # Create and track the agent task
+                    _current_agent_task = asyncio.create_task(invoke_agent(rendered_prompt))
+                    await _current_agent_task
+                except asyncio.CancelledError:
+                    # Agent was interrupted, continue with the loop
+                    pass
+                finally:
+                    _current_agent_task = None
                 continue
             elif prompt_name != "exit":
                 console.print(f"[yellow]Unknown prompt: /{prompt_name}[/yellow]")
                 continue
 
-        await invoke_agent(user_prompt)
+        try:
+            # Create and track the agent task
+            _current_agent_task = asyncio.create_task(invoke_agent(user_prompt))
+            await _current_agent_task
+        except asyncio.CancelledError:
+            # Agent was interrupted, continue with the loop
+            pass
+        finally:
+            _current_agent_task = None
+
+
+def _handle_interrupt(sig, frame):
+    """
+    Handle SIGINT (Ctrl+C) by cancelling the current agent task if running.
+    
+    Parameters
+    ----------
+    sig : int
+        The signal number.
+    frame : frame
+        The current stack frame.
+    """
+    global _current_agent_task
+    
+    if _current_agent_task is not None and not _current_agent_task.done():
+        # Agent is running, cancel it
+        _current_agent_task.cancel()
+    else:
+        # Agent is not running, raise KeyboardInterrupt to exit
+        raise KeyboardInterrupt
 
 
 def run_gui() -> None:
     """Run the GUI as a synchronous entry point for the CLI."""
+    # Install signal handler for Ctrl+C
+    signal.signal(signal.SIGINT, _handle_interrupt)
+    
     try:
         asyncio.run(run_interaction_loop())
     except KeyboardInterrupt:
-        console.print("\n[dim]Interrupted. Goodbye![/dim]")
+        console.print("\n[dim]Goodbye![/dim]")
