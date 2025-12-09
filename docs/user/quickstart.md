@@ -63,6 +63,7 @@ While in interactive mode, you can use the following commands:
 | Command    | Description                        |
 | ---------- | ---------------------------------- |
 | `/clear`   | Clear the conversation history     |
+| `/models`  | List available models              |
 | `/prompts` | List available custom prompts      |
 | `/exit`    | Exit the application               |
 
