@@ -39,6 +39,7 @@ helix -p "Your prompt"
 | Command    | Description                    |
 | ---------- | ------------------------------ |
 | `/clear`   | Clear conversation history     |
+| `/models`  | List the available models      |
 | `/prompts` | List available custom prompts  |
 | `/exit`    | Exit the application           |
 
